@@ -1,0 +1,107 @@
+/* WeaveConnect global layout styles */
+
+.route-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100vh;
+  color: var(--gold, #d4af37);
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  background: var(--bg, #14100b);
+}
+
+.route-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(212, 175, 55, 0.3);
+  border-top-color: var(--gold, #d4af37);
+  border-radius: 50%;
+  animation: route-spin 0.8s linear infinite;
+}
+
+@keyframes route-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.app-page-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  font-size: 1.1rem;
+  color: #7a9e74;
+}
+
+.portal-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg, #14100b);
+}
+
+.portal-fallback-card {
+  max-width: 420px;
+  width: 100%;
+  padding: 40px 32px;
+  text-align: center;
+  background: var(--surface, #1e1813);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-radius: 14px;
+}
+
+.portal-fallback-badge {
+  display: inline-block;
+  margin-bottom: 16px;
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #14100b;
+  background: var(--gold, #d4af37);
+  border-radius: 999px;
+}
+
+.portal-fallback-card h1 {
+  margin: 0 0 10px;
+  font-size: 1.3rem;
+  color: var(--cream, #f5efe4);
+}
+
+.portal-fallback-card p {
+  margin: 0 0 24px;
+  font-size: 0.95rem;
+  color: var(--muted, #b2a691);
+}
+
+.portal-fallback-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.portal-fallback-btn {
+  padding: 10px 18px;
+  font-size: 0.92rem;
+  border-radius: 8px;
+  color: var(--cream, #f5efe4);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+
+.portal-fallback-btn.primary {
+  color: #14100b;
+  background: var(--gold, #d4af37);
+  border-color: var(--gold, #d4af37);
+}
+
+.portal-fallback-btn:hover {
+  filter: brightness(1.1);
+}
+

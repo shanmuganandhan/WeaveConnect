@@ -1,0 +1,17 @@
+.ui-stars {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ui-stars-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4a3f35;
+  margin-left: 0.3rem;
+}
+
+.ui-stars-count {
+  font-size: 0.78rem;
+  color: #b3a18e;
+}

@@ -1,0 +1,570 @@
+.orders-page {
+  min-height: 100vh;
+  background: #0f0d0a;
+  color: #fdf8f3;
+  font-family: 'Georgia', serif;
+  padding: 24px;
+}
+
+.orders-loading-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.orders-header {
+  max-width: 1200px;
+  margin: 0 auto 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.orders-back {
+  display: inline-block;
+  color: #d4af37;
+  text-decoration: none;
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+  transition: opacity 0.2s;
+}
+
+.orders-back:hover {
+  opacity: 0.7;
+}
+
+.orders-header h1 {
+  font-size: 1.8rem;
+  margin: 0 0 4px;
+  color: #fdf8f3;
+}
+
+.orders-subtitle {
+  color: #9c8a6b;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Role Switcher */
+.orders-role-switcher {
+  display: flex;
+  gap: 6px;
+  background: #1a1612;
+  border: 1px solid #2d2620;
+  border-radius: 10px;
+  padding: 5px;
+}
+
+.orders-role-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #9c8a6b;
+  font-size: 0.88rem;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orders-role-btn:hover {
+  color: #fdf8f3;
+}
+
+.orders-role-btn.active {
+  background: linear-gradient(135deg, #d4af37, #b4825a);
+  color: #1a1612;
+  font-weight: 600;
+}
+
+/* Inner container */
+.orders-page-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  animation: ordersFade 0.3s ease;
+}
+
+.orders-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.orders-section-title h2 {
+  font-size: 1.2rem;
+  margin: 0;
+  color: #fdf8f3;
+}
+
+.orders-section-count {
+  color: #9c8a6b;
+  font-size: 0.85rem;
+}
+
+/* Buyer cards */
+.orders-buyer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.orders-buyer-card {
+  background: #1a1612;
+  border: 1px solid #2d2620;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.orders-buyer-card:hover {
+  border-color: #3a3228;
+}
+
+.orders-buyer-card.expanded {
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.orders-buyer-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  transition: background-color 0.2s ease;
+}
+
+.orders-buyer-header:hover {
+  background: rgba(212, 175, 55, 0.04);
+}
+
+.orders-buyer-thumb {
+  width: 72px;
+  height: 84px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.orders-buyer-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.orders-buyer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.orders-buyer-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.orders-buyer-id {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #d4af37;
+}
+
+.orders-buyer-product {
+  font-size: 1rem;
+  color: #fdf8f3;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orders-buyer-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #9c8a6b;
+  flex-wrap: wrap;
+}
+
+.orders-buyer-meta .delivered {
+  color: #2e8b57;
+}
+
+.orders-buyer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.orders-buyer-price {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fdf8f3;
+}
+
+.orders-buyer-toggle {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #3a3228;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d4af37;
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.orders-buyer-card.expanded .orders-buyer-toggle {
+  background: #d4af37;
+  color: #1a1612;
+  border-color: #d4af37;
+}
+
+/* Status badge */
+.orders-status {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(26, 22, 18, 0.8);
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+/* Timeline */
+.orders-buyer-body {
+  border-top: 1px solid #2d2620;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+}
+
+.orders-timeline-wrap h4 {
+  margin: 0 0 16px;
+  font-size: 0.9rem;
+  color: #9c8a6b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.orders-timeline {
+  position: relative;
+  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.orders-timeline-line {
+  position: absolute;
+  left: 9px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: #2d2620;
+}
+
+.orders-timeline-step {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+
+.orders-timeline-step:last-child {
+  padding-bottom: 0;
+}
+
+.orders-timeline-dot {
+  position: absolute;
+  left: -24px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #2d2620;
+  border: 2px solid #3a3228;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  z-index: 1;
+}
+
+.orders-timeline-step.done .orders-timeline-dot {
+  background: #d4af37;
+  border-color: #d4af37;
+  color: #1a1612;
+}
+
+.orders-timeline-step.done .orders-timeline-line-done {
+  background: #d4af37;
+}
+
+.orders-timeline-label {
+  font-size: 0.88rem;
+  color: #5a4e3c;
+}
+
+.orders-timeline-step.done .orders-timeline-label {
+  color: #fdf8f3;
+}
+
+.orders-timeline-time {
+  font-size: 0.75rem;
+  color: #9c8a6b;
+  margin-top: 2px;
+}
+
+.orders-buyer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  align-items: stretch;
+}
+
+/* Buttons */
+.orders-btn-ghost {
+  padding: 8px 16px;
+  border: 1px solid #3a3228;
+  border-radius: 8px;
+  background: transparent;
+  color: #9c8a6b;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.orders-btn-ghost:hover {
+  border-color: #d4af37;
+  color: #fdf8f3;
+}
+
+.orders-accept-btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #d4af37, #b4825a);
+  color: #1a1612;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orders-accept-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.3);
+}
+
+/* Tabs (manufacturer) */
+.orders-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.orders-tab {
+  padding: 10px 20px;
+  border: 1px solid #2d2620;
+  border-radius: 10px;
+  background: #1a1612;
+  color: #9c8a6b;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.orders-tab:hover {
+  border-color: #3a3228;
+  color: #fdf8f3;
+}
+
+.orders-tab.active {
+  border-color: #d4af37;
+  color: #d4af37;
+  font-weight: 600;
+}
+
+.orders-tab-count {
+  background: #2d2620;
+  color: #9c8a6b;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.orders-tab.active .orders-tab-count {
+  background: rgba(212, 175, 55, 0.15);
+  color: #d4af37;
+}
+
+/* Tables */
+.orders-table-wrap {
+  background: #1a1612;
+  border: 1px solid #2d2620;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.orders-table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  color: #9c8a6b;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #2d2620;
+  white-space: nowrap;
+}
+
+.orders-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #2d2620;
+  color: #fdf8f3;
+  white-space: nowrap;
+}
+
+.orders-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.orders-table tbody tr:hover {
+  background: #1f1b16;
+}
+
+.orders-cell-main {
+  font-weight: 600;
+  color: #fdf8f3;
+}
+
+.orders-cell-sub {
+  font-size: 0.78rem;
+  color: #9c8a6b;
+}
+
+/* Filter chips (admin) */
+.orders-filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.orders-chip {
+  padding: 7px 16px;
+  border: 1px solid #2d2620;
+  border-radius: 20px;
+  background: transparent;
+  color: #9c8a6b;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.orders-chip:hover {
+  border-color: #d4af37;
+  color: #fdf8f3;
+}
+
+.orders-chip.active {
+  background: #d4af37;
+  color: #1a1612;
+  border-color: #d4af37;
+  font-weight: 600;
+}
+
+/* Animations */
+@keyframes ordersFade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ordersSlideDown {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+  .orders-page {
+    padding: 16px;
+  }
+
+  .orders-header {
+    align-items: flex-start;
+  }
+
+  .orders-role-switcher {
+    width: 100%;
+  }
+
+  .orders-role-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+  }
+
+  .orders-buyer-header {
+    padding: 12px;
+  }
+
+  .orders-buyer-thumb {
+    width: 56px;
+    height: 66px;
+  }
+
+  .orders-buyer-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .orders-buyer-body {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .orders-buyer-actions {
+    flex-direction: row;
+  }
+
+  .orders-buyer-actions a,
+  .orders-buyer-actions button {
+    flex: 1;
+  }
+}

@@ -1,0 +1,134 @@
+.ui-empty,
+.ui-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 56px 24px;
+  background: #1a1612;
+  border: 1px solid #2d2620;
+  border-radius: 14px;
+  color: #fdf8f3;
+  font-family: 'Georgia', serif;
+  animation: uiFadeIn 0.3s ease;
+}
+
+.ui-empty-icon,
+.ui-error-icon {
+  font-size: 2.6rem;
+  margin-bottom: 16px;
+  opacity: 0.9;
+}
+
+.ui-empty-title,
+.ui-error-title {
+  font-size: 1.15rem;
+  margin: 0 0 8px;
+  color: #fdf8f3;
+}
+
+.ui-empty-message,
+.ui-error-message {
+  font-size: 0.9rem;
+  color: #9c8a6b;
+  margin: 0 0 20px;
+  max-width: 360px;
+  line-height: 1.6;
+}
+
+.ui-empty-action,
+.ui-error-action {
+  display: inline-block;
+  padding: 10px 26px;
+  border: none;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #d4af37, #b4825a);
+  color: #1a1612;
+  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ui-empty-action:hover,
+.ui-error-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.3);
+}
+
+.ui-empty-compact {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 16px;
+  margin-top: 16px;
+  font-family: inherit;
+}
+
+.ui-empty-compact-icon {
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Holds the title and the optional message in one column, so the action
+   button can sit on the right of the row. */
+.ui-empty-compact-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-empty-compact-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #cbb98f;
+  margin: 0;
+}
+
+.ui-empty-compact-message {
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* The action keeps its own size and does not stretch the row. */
+.ui-empty-compact .ui-empty-action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* On a narrow screen the row would squash the text, so the action is
+   allowed to drop onto its own line instead. */
+@media (max-width: 480px) {
+  .ui-empty-compact {
+    flex-wrap: wrap;
+  }
+  .ui-empty-compact .ui-empty-action {
+    margin-left: 26px;
+  }
+}
+.ui-error {
+  border-color: rgba(214, 69, 69, 0.4);
+}
+
+.ui-error-icon {
+  color: #d64545;
+}
+
+@keyframes uiFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-empty,
+  .ui-error {
+    animation: none;
+  }
+}

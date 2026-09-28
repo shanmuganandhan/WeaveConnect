@@ -1,0 +1,76 @@
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #2d2620;
+  border-radius: 8px;
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: skeletonShimmer 1.4s infinite;
+}
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+}
+
+.skeleton-card {
+  background: #1a1612;
+  border: 1px solid #2d2620;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.skeleton-card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-image {
+  width: 100%;
+  aspect-ratio: 3 / 3.6;
+  border-radius: 0;
+}
+
+.skeleton-chip {
+  width: 88px;
+  height: 14px;
+  border-radius: 7px;
+}
+
+.skeleton-price {
+  width: 120px;
+  height: 18px;
+  border-radius: 9px;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 24px;
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
