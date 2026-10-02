@@ -9,6 +9,13 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust exactly one reverse-proxy hop (Render) so req.ip resolves to the real
+// client from X-Forwarded-For. express-rate-limit throws
+// ERR_ERL_UNEXPECTED_X_FORWARDED_FOR when this header arrives while
+// 'trust proxy' is false. A value of 1 ignores client-supplied X-Forwarded-For
+// spoofing beyond the single proxy Render adds.
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
