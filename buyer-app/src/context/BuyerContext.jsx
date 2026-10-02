@@ -1,14 +1,31 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import * as buyerApi from '../api/buyerApi'
+import { useCart } from './CartContext'
+import { useWishlist } from './WishlistContext'
 import { useToast } from '../hooks/useToast'
 
 const BuyerContext = createContext(null)
 
+/**
+ * Account-level data for the signed-in buyer: orders, profile, and re-exposed
+ * cart/wishlist state.
+ *
+ * The cart lives in CartContext and the wishlist lives in WishlistContext -
+ * both providers are mounted at the app level because their buttons also appear
+ * on the public product pages, which render outside the /buyer layout. They are
+ * re-exposed here so every buyer page can keep reading everything from one hook
+ * and the header badge, the product page and the account pages can never
+ * disagree.
+ */
 export function BuyerProvider({ children }) {
+  const cartCtx = useCart()
+  const { cart, itemCount, totalQuantity, subtotal, loading: cartLoading, error: cartError,
+    refreshCart, addItem, updateItem, removeItem, clearCart } = cartCtx
+  const wishCtx = useWishlist()
+  const { wishlist, toggleWishlist: toggleWishlistBase, removeWishlistItem } = wishCtx
+
   const [orders, setOrders] = useState([])
-  const [wishlist, setWishlist] = useState([])
   const [profile, setProfile] = useState(null)
-  const [cart, setCart] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const { toast, showToast } = useToast()
@@ -16,77 +33,67 @@ export function BuyerProvider({ children }) {
   const refresh = useCallback(async () => {
     setLoading(true)
     setError('')
-    try {
-      const [oRes, wRes, pRes, cRes] = await Promise.all([
-        buyerApi.getMyOrders(),
-        buyerApi.getMyWishlist(),
-        buyerApi.getMyProfile(),
-        buyerApi.getMyCart(),
-      ])
-      setOrders(oRes.data.orders || [])
-      setWishlist(wRes.data.items || [])
-      setProfile(pRes.data.profile || null)
-      setCart(cRes.data.cart || null)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    // allSettled instead of all: a single failing endpoint (say, the profile)
+    // should not leave the buyer looking at an empty orders list. Each section
+    // falls back to empty, and the error message says what could not be read.
+    const [oRes, pRes] = await Promise.allSettled([
+      buyerApi.getMyOrders(),
+      buyerApi.getMyProfile(),
+    ])
+
+    if (oRes.status === 'fulfilled') setOrders(oRes.value?.data?.orders || [])
+    if (pRes.status === 'fulfilled') setProfile(pRes.value?.data?.profile || null)
+
+    const failures = [oRes, pRes].filter((r) => r.status === 'rejected')
+    setError(
+      failures.length
+        ? failures.map((f) => f.reason?.message).filter(Boolean)[0] ||
+            'We could not load your account right now.'
+        : ''
+    )
+    setLoading(false)
   }, [])
 
   useEffect(() => {
     refresh()
   }, [refresh])
 
-  const refreshCart = useCallback(async () => {
-    const res = await buyerApi.getMyCart()
-    setCart(res.data.cart || null)
-    return res.data.cart || null
-  }, [])
+  const addToCart = useCallback((productId, quantity = 1) => addItem(productId, quantity), [addItem])
+  const updateCartItem = useCallback(
+    (productId, quantity) => updateItem(productId, quantity),
+    [updateItem]
+  )
+  const removeCartItem = useCallback((productId) => removeItem(productId), [removeItem])
 
-  const addToCart = useCallback(async (productId, quantity = 1) => {
-    await buyerApi.addToMyCart(productId, quantity)
-    await refreshCart()
-  }, [refreshCart])
+  const toggleWishlist = useCallback(
+    async (productId) => {
+      try {
+        const added = await toggleWishlistBase(productId)
+        if (added !== null) showToast(added ? 'Added to wishlist' : 'Removed from wishlist')
+        return added
+      } catch (err) {
+        showToast(err?.message || 'Could not update your wishlist', 'error')
+        return null
+      }
+    },
+    [toggleWishlistBase, showToast]
+  )
 
-  const updateCartItem = useCallback(async (productId, quantity) => {
-    await buyerApi.updateMyCartItem(productId, quantity)
-    await refreshCart()
-  }, [refreshCart])
-
-  const removeCartItem = useCallback(async (productId) => {
-    await buyerApi.removeFromMyCart(productId)
-    await refreshCart()
-  }, [refreshCart])
-
-  // Only resets what is on screen. The saved cart on the server is emptied by
-  // the backend when the order is created, so this does not need an API call.
-  const clearCart = useCallback(() => {
-    setCart(null)
-  }, [])
-
-  const toggleWishlist = useCallback(async (productId) => {
-    const exists = wishlist.some((item) => item._id === productId)
-    if (exists) {
-      await buyerApi.removeFromMyWishlist(productId)
-      setWishlist((prev) => prev.filter((item) => item._id !== productId))
-      showToast('Removed from wishlist')
-    } else {
-      const res = await buyerApi.addToMyWishlist(productId)
-      setWishlist(res.data.items || [])
-      showToast('Added to wishlist')
-    }
-  }, [wishlist, showToast])
-
-  const removeWishlistItem = useCallback(async (productId) => {
-    await buyerApi.removeFromMyWishlist(productId)
-    setWishlist((prev) => prev.filter((item) => item._id !== productId))
-    showToast('Removed from wishlist')
-  }, [showToast])
+  const removeWishlistItemWithToast = useCallback(
+    async (productId) => {
+      try {
+        await removeWishlistItem(productId)
+        showToast('Removed from wishlist')
+      } catch (err) {
+        showToast(err?.message || 'Could not update your wishlist', 'error')
+      }
+    },
+    [removeWishlistItem, showToast]
+  )
 
   const updateProfile = useCallback(async (payload) => {
     const res = await buyerApi.updateMyProfile(payload)
-    setProfile(res.data.profile || null)
+    setProfile(res?.data?.profile || null)
     showToast('Profile updated successfully!')
   }, [showToast])
 
@@ -95,7 +102,13 @@ export function BuyerProvider({ children }) {
       orders,
       wishlist,
       profile,
+      // Cart (shared with the header through CartContext)
       cart,
+      cartItemCount: itemCount,
+      cartTotalQuantity: totalQuantity,
+      cartSubtotal: subtotal,
+      cartLoading,
+      cartError,
       loading,
       error,
       toast,
@@ -106,11 +119,12 @@ export function BuyerProvider({ children }) {
       removeCartItem,
       clearCart,
       toggleWishlist,
-      removeWishlistItem,
+      removeWishlistItem: removeWishlistItemWithToast,
       updateProfile,
     }),
-    [orders, wishlist, profile, cart, loading, error, toast, refresh, refreshCart,
-     addToCart, updateCartItem, removeCartItem, clearCart, toggleWishlist, removeWishlistItem, updateProfile]
+    [orders, wishlist, profile, cart, itemCount, totalQuantity, subtotal, cartLoading, cartError,
+      loading, error, toast, refresh, refreshCart, addToCart, updateCartItem, removeCartItem,
+      clearCart, toggleWishlist, removeWishlistItemWithToast, updateProfile]
   )
 
   return <BuyerContext.Provider value={value}>{children}</BuyerContext.Provider>

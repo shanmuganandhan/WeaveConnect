@@ -57,7 +57,9 @@ api.interceptors.response.use(
     if (normalized.status === 401 && !isAuthRequest) {
       authStorage.clear()
       if (window.location.pathname !== '/login') {
-        window.location.assign('/login')
+        const current = window.location.pathname + window.location.search + window.location.hash
+        const safe = current.startsWith('/') && !current.startsWith('//') ? current : '/'
+        window.location.assign(`/login?returnTo=${encodeURIComponent(safe)}`)
       }
     }
     return Promise.reject(normalized)

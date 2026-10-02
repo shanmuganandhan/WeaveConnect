@@ -5,12 +5,23 @@ import { formatINR } from '../../utils/format'
 import { productImage, productImageCount, productLink } from '../../utils/product'
 import { SkeletonCard } from '../../components/ui/Skeleton'
 import { PhotoCountBadge } from '../../components/ui/PhotoCountBadge'
+import { useToast } from '../../hooks/useToast'
+import { useAddToCart } from '../../hooks/useAddToCart'
 
 const CATEGORIES = ['Kanchipuram', 'Banarasi', 'Mysore', 'Patola', 'Pochampally', 'Paithani']
 
 export default function BuyerHome() {
   const [featured, setFeatured] = useState([])
   const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState(null)
+  const { showToast } = useToast()
+  const addToCart = useAddToCart(showToast)
+
+  const handleAddToCart = async (product) => {
+    setBusyId(product._id)
+    await addToCart(product, 1)
+    setBusyId(null)
+  }
 
   useEffect(() => {
     let alive = true
@@ -73,6 +84,14 @@ export default function BuyerHome() {
                   <div className="bd-rec-price-row">
                     <span className="bd-rec-price">{formatINR(p.price)}</span>
                   </div>
+                  <button
+                    type="button"
+                    className="bd-rec-add"
+                    onClick={() => handleAddToCart(p)}
+                    disabled={(p.stock ?? 0) < 1 || busyId === p._id}
+                  >
+                    {busyId === p._id ? 'Adding…' : (p.stock ?? 0) < 1 ? 'Sold Out' : 'Add to Cart'}
+                  </button>
                 </div>
               </article>
             ))}

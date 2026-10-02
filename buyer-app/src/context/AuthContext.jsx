@@ -7,7 +7,7 @@ const AuthContext = createContext(null)
 export function homeRouteFor(role) {
   if (role === 'admin') return '/admin/dashboard'
   if (role === 'manufacturer') return '/manufacturer/dashboard'
-  return '/buyer/collection'
+  return '/buyer/dashboard'
 }
 
 export function AuthProvider({ children }) {

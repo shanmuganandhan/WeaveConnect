@@ -1,0 +1,458 @@
+.orders-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.orders-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.orders-header h1 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.9rem;
+  color: #1a1612;
+}
+
+.orders-sub {
+  margin: 0.3rem 0 0;
+  font-size: 0.88rem;
+  color: #7a6a58;
+}
+
+.orders-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #a3701f;
+  padding: 0.5rem 0;
+}
+
+.orders-back:hover {
+  color: #8b6f47;
+}
+
+.order-placed-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  background: rgba(46, 125, 91, 0.08);
+  border: 1px solid rgba(46, 125, 91, 0.3);
+  color: #2e6b51;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.order-placed-banner strong {
+  color: #245c45;
+}
+
+.order-placed-banner span {
+  color: #2e6b51;
+  font-weight: 700;
+}
+
+/* ---------- filters ---------- */
+.orders-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.4rem;
+}
+
+.orders-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #e2d6c2;
+  background: #fff;
+  color: #6b5c4c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.orders-chip:hover {
+  border-color: #c9a227;
+  color: #8b6f47;
+}
+
+.orders-chip.active {
+  background: #1a1612;
+  border-color: #1a1612;
+  color: #fff;
+}
+
+.orders-chip-count {
+  min-width: 20px;
+  padding: 0 5px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #f2e8d8;
+  color: #8a7a67;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.orders-chip.active .orders-chip-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ---------- list ---------- */
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.order-row {
+  background: #fff;
+  border: 1px solid #ece2d4;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.order-row:hover {
+  border-color: #dcc59c;
+  box-shadow: 0 12px 28px rgba(26, 22, 18, 0.06);
+}
+
+.order-row-highlight {
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+
+.order-row-main {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1rem 1.15rem;
+}
+
+.order-row-thumb {
+  position: relative;
+  width: 66px;
+  height: 82px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  overflow: hidden;
+  background: #f2e8d8;
+}
+
+.order-row-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.order-row-more {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(26, 22, 18, 0.78);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.order-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.order-row-info h3 {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.05rem;
+  color: #1a1612;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order-row-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #9a8a76;
+}
+
+.order-status {
+  align-self: flex-start;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.order-status-pending {
+  color: #a4701b;
+  background: rgba(192, 122, 29, 0.12);
+}
+
+.order-status-accepted {
+  color: #2a5f8f;
+  background: rgba(42, 95, 143, 0.12);
+}
+
+.order-status-shipped {
+  color: #6a4ba8;
+  background: rgba(106, 75, 168, 0.12);
+}
+
+.order-status-delivered {
+  color: #2e7d5b;
+  background: rgba(46, 125, 91, 0.12);
+}
+
+.order-status-cancelled {
+  color: #a4442f;
+  background: rgba(164, 68, 47, 0.1);
+}
+
+.order-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.order-row-total {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #1a1612;
+}
+
+.order-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2d6c2;
+  background: #fff;
+  color: #6b5c4c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.order-toggle:hover {
+  border-color: #c9a227;
+  color: #8b6f47;
+}
+
+.order-toggle-icon {
+  display: inline-flex;
+  transition: transform 0.25s ease;
+}
+
+.order-toggle[aria-expanded='true'] .order-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* ---------- expanded details ---------- */
+.order-details {
+  padding: 0 1.15rem 1.35rem;
+  border-top: 1px dashed #e2d6c2;
+  animation: orderReveal 0.25s ease;
+}
+
+@keyframes orderReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.order-details-hint {
+  margin: 1.1rem 0 1.25rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 9px;
+  background: #faf6ef;
+  border-left: 3px solid #c9a227;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  color: #6b5c4c;
+}
+
+.order-details h4 {
+  margin: 0 0 0.7rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #a3701f;
+}
+
+.order-details-items {
+  list-style: none;
+  margin: 0 0 1.35rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.order-details-items li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem;
+  border-radius: 11px;
+  background: #fdfbf7;
+  border: 1px solid #f0e7d8;
+}
+
+.order-details-items img {
+  width: 44px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f2e8d8;
+}
+
+.order-details-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.order-details-item-info a,
+.order-details-item-info span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1612;
+}
+
+.order-details-item-info a:hover {
+  color: #8b6f47;
+}
+
+.order-details-item-info > span:last-child {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #9a8a76;
+}
+
+.order-details-items strong {
+  font-size: 0.87rem;
+  color: #1a1612;
+  white-space: nowrap;
+}
+
+.order-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.order-address {
+  font-style: normal;
+  font-size: 0.85rem;
+  line-height: 1.75;
+  color: #5c4f42;
+}
+
+.order-payment {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.order-payment > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.order-payment dt {
+  color: #8a7a67;
+}
+
+.order-payment dd {
+  margin: 0;
+  font-weight: 700;
+  color: #1a1612;
+  text-transform: capitalize;
+}
+
+.order-payment-status {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(192, 122, 29, 0.12);
+  color: #a4701b !important;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 720px) {
+  .orders-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .order-row-main {
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    padding: 0.9rem;
+  }
+
+  .order-row-thumb {
+    width: 56px;
+    height: 70px;
+  }
+
+  .order-row-info h3 {
+    font-size: 0.95rem;
+  }
+
+  .order-row-right {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .order-details-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}

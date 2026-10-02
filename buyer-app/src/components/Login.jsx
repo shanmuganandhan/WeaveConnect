@@ -4,24 +4,30 @@ import { useAuth, homeRouteFor } from '../context/AuthContext'
 import { IconUser, IconLock, IconEye, IconEyeOff, IconShield, IconCert, IconTruck, IconAlert, IconCheck, IconArrowRight, IconArrowLeft } from './ui/Icons'
 import './Auth.css'
 
+// Every line here describes something the app actually does - no claims about
+// certificates, insurance or delivery promises that the backend does not back.
 const benefits = [
-  { icon: <IconShield size={18} />, text: 'Authenticity certificates on every saree' },
-  { icon: <IconCert size={18} />, text: 'Direct support to master weaver families' },
-  { icon: <IconTruck size={18} />, text: 'Worldwide insured express shipping' },
+  { icon: <IconShield size={18} />, text: 'Order directly from the registered manufacturers' },
+  { icon: <IconCert size={18} />, text: 'Browse every saree by weave, with live stock shown' },
+  { icon: <IconTruck size={18} />, text: 'Save your cart and follow each order from pending to delivered' },
 ]
+
+// Only internal paths are allowed through, so a crafted ?returnTo= cannot push
+// the shopper to another site after login.
+const safeReturnTo = (value) =>
+  typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') ? value : ''
 
 function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const returnTo = searchParams.get('returnTo')
+  const returnTo = safeReturnTo(searchParams.get('returnTo'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
   const [errors, setErrors] = useState({})
   const [success, setSuccess] = useState(false)
-  const [notice, setNotice] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -87,11 +93,11 @@ function Login() {
 
           <div className="auth-brand-text">
             <h2>
-              Welcome back to <span>timeless artistry</span>
+              Welcome back to <span>the weavers' storefront</span>
             </h2>
             <p>
-              Sign in to continue your journey with India's finest handwoven silk,
-              connecting you directly with master weavers across the country.
+              Sign in to keep your cart, place an order and follow it through to
+              delivery - the order goes straight to the manufacturer who wove it.
             </p>
           </div>
 
@@ -105,7 +111,8 @@ function Login() {
           </ul>
 
           <p className="auth-quote">
-            "A silk saree is not just fabric — it is generations of craft woven into a single thread."
+            WeaveConnect connects buyers with the manufacturers who weave the
+            sarees they list.
           </p>
         </aside>
 
@@ -117,10 +124,10 @@ function Login() {
             </p>
           </div>
 
-          {notice && (
+          {returnTo && (
             <div className="notice-banner" role="status">
               <IconAlert size={16} />
-              {notice}
+              Please sign in to continue. We will take you back afterwards.
             </div>
           )}
 
@@ -223,7 +230,11 @@ function Login() {
           </div>
 
           <div className="auth-switch" style={{ marginTop: 8 }}>
-            <a href={`${import.meta.env.VITE_SELLER_APP_URL || 'http://localhost:3001'}/seller/login`} className="forgot-link">Are you a seller? Sign in here</a>
+            {import.meta.env.VITE_SELLER_APP_URL && (
+              <a href={`${import.meta.env.VITE_SELLER_APP_URL}/seller/login`} className="forgot-link">
+                Are you a seller? Sign in here
+              </a>
+            )}
           </div>
 
           <Link to="/" className="auth-home-link">

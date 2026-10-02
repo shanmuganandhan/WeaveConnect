@@ -1,25 +1,19 @@
-import Navbar from './Navbar'
 import Hero from './Hero'
-import FeaturedSarees from './FeaturedSarees'
 import Categories from './Categories'
+import FeaturedSarees from './FeaturedSarees'
 import WhyChoose from './WhyChoose'
-import WeaversStory from './WeaversStory'
-import Testimonials from './Testimonials'
 import CTA from './CTA'
-import Footer from './Footer'
 
+// The Navbar and Footer come from PublicLayout now, so this component only
+// owns the page sections.
 export default function HomePage() {
   return (
     <>
-      <Navbar />
       <Hero />
-      <FeaturedSarees />
       <Categories />
+      <FeaturedSarees />
       <WhyChoose />
-      <WeaversStory />
-      <Testimonials />
       <CTA />
-      <Footer />
     </>
   )
 }

@@ -201,8 +201,55 @@ button {
 
 .section-header {
   text-align: center;
-  margin-bottom: 4rem;
+  margin-bottom: 3rem;
   animation: fadeInUp 0.8s ease-out;
+}
+
+/* Light-surface section primitives shared by the homepage sections. */
+.section-badge {
+  display: inline-block;
+  padding: 0.38rem 0.95rem;
+  border-radius: 999px;
+  background: rgba(201, 162, 39, 0.12);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  color: #a3701f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.9rem;
+}
+
+.section-title {
+  margin: 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #1a1612;
+}
+
+.section-highlight {
+  background: linear-gradient(120deg, #b8863a, #c9a227);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.section-description {
+  max-width: 40rem;
+  margin: 0.9rem auto 0;
+  font-size: 0.97rem;
+  line-height: 1.7;
+  color: #6b5c4c;
+}
+
+@media (max-width: 640px) {
+  .section-header {
+    margin-bottom: 2rem;
+  }
 }
 
 @keyframes fadeInUp {

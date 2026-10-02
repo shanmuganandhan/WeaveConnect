@@ -4,10 +4,11 @@ import { useAuth, homeRouteFor } from '../context/AuthContext'
 import { IconUser, IconLock, IconEye, IconEyeOff, IconMail, IconPhone, IconShield, IconCert, IconTruck, IconAlert, IconCheck, IconArrowRight, IconArrowLeft } from './ui/Icons'
 import './Auth.css'
 
+// Kept factual - each line maps to something the app really offers.
 const benefits = [
-  { icon: <IconShield size={18} />, text: 'Exclusive member-only collections' },
-  { icon: <IconCert size={18} />, text: 'Authenticity guaranteed on every saree' },
-  { icon: <IconTruck size={18} />, text: 'Free shipping on orders over ₹15,000' },
+  { icon: <IconShield size={18} />, text: 'Buy directly from the manufacturer who wove it' },
+  { icon: <IconCert size={18} />, text: 'See price, category and live stock on every saree' },
+  { icon: <IconTruck size={18} />, text: 'Keep your cart saved and track each order status' },
 ]
 
 function FieldError({ id, message }) {
@@ -129,11 +130,11 @@ function Register() {
 
           <div className="auth-brand-text">
             <h2>
-              Join the <span>weaving community</span>
+              Create your <span>buyer account</span>
             </h2>
             <p>
-              Whether you're a connoisseur of fine silk or a craftsman sharing your
-              legacy, your journey with authentic handloom starts here.
+              A WeaveConnect account is all it takes to keep a cart, place a cash on
+              delivery order and follow it from pending to delivered.
             </p>
           </div>
 
@@ -147,7 +148,7 @@ function Register() {
           </ul>
 
           <p className="auth-quote">
-            "Every loom tells a story. Join us to write the next chapter."
+            Sellers list their own sarees on WeaveConnect. This sign-up is for buyers.
           </p>
         </aside>
 

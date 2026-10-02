@@ -929,3 +929,64 @@
     gap: 1rem;
   }
 }
+
+/* Wishlist action, shown only to signed-in buyers. */
+.pd-btn-wish {
+  flex: 0 0 auto;
+  min-height: 54px;
+  padding: 0 1.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 14px;
+  border: 2px solid #e2d6c2;
+  background: #fff;
+  color: #6b5c4c;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.pd-btn-wish:hover {
+  border-color: #c9836f;
+  color: #a4442f;
+}
+
+.pd-btn-wish.active {
+  border-color: #a4442f;
+  background: rgba(164, 68, 47, 0.07);
+  color: #a4442f;
+}
+
+.pd-notfound-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+/* The facts list replaced the old trust badges, so make sure the icon and the
+   text line up the same way the inline SVGs used to. */
+.pd-trust li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pd-trust li svg {
+  flex-shrink: 0;
+  color: #b8863a;
+}
+
+@media (max-width: 560px) {
+  .pd-actions {
+    flex-wrap: wrap;
+  }
+
+  .pd-btn-wish {
+    flex: 1 1 100%;
+    min-height: 48px;
+  }
+}

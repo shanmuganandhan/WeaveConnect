@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { getProduct, getProducts } from '../api/products'
 import { formatINR } from '../utils/format'
-import { productImage, manufacturerName, productLink } from '../utils/product'
+import { productImage, manufacturerName } from '../utils/product'
 import { formatDate } from '../utils/date'
+import { useAuth } from '../context/AuthContext'
+import { useWishlist } from '../context/WishlistContext'
 import Toast from './ui/Toast'
 import { useToast } from '../hooks/useToast'
 import { useAddToCart } from '../hooks/useAddToCart'
@@ -12,76 +14,94 @@ import { ErrorState } from './ui/States'
 import ProductImageCarousel from './ProductImageCarousel'
 import ProductReviews from './ProductReviews'
 import Stars from './ui/Stars'
+import {
+  IconBag,
+  IconHeart,
+  IconPackage,
+  IconCoin,
+  IconAlert,
+  IconStore,
+  IconArrowRight,
+} from './ui/Icons'
 import './ProductDetails.css'
 
-function StockBadge({ stock }) {
-  if (stock === 0) {
-    return (
-      <span className="pd-stock pd-stock-out">
-        <span className="pd-stock-dot"></span> Out of Stock
-      </span>
-    )
-  }
-  if (stock <= 5) {
-    return (
-      <span className="pd-stock pd-stock-low">
-        <span className="pd-stock-dot"></span> Only {stock} left in stock!
-      </span>
-    )
-  }
-  return (
-    <span className="pd-stock pd-stock-in">
-      <span className="pd-stock-dot"></span> In Stock · Ships in 24-48 hrs
-    </span>
-  )
+// A single place for the stock message so the badge, the quantity cap and the
+// button label cannot disagree with each other.
+function stockState(product) {
+  if (product.isAvailable === false) return { tone: 'out', label: 'Unavailable' }
+  const stock = Number(product.stock) || 0
+  if (stock === 0) return { tone: 'out', label: 'Out of stock' }
+  if (stock <= 5) return { tone: 'low', label: `Only ${stock} left in stock` }
+  return { tone: 'in', label: 'In stock' }
 }
+
+// The specifications tab can only show what the product record actually holds.
+// Anything else (length, care, weave time) would be invented, so it is left out.
+const SPEC_ROWS = (product) => [
+  { label: 'Category', value: product.category || '—' },
+  { label: 'Price', value: formatINR(product.price) },
+  {
+    label: 'Availability',
+    value: product.isAvailable === false
+      ? 'Not available'
+      : Number(product.stock) > 0
+        ? `${product.stock} in stock`
+        : 'Out of stock',
+  },
+  { label: 'Units sold', value: Number(product.soldCount) || 0 },
+  { label: 'Manufacturer', value: manufacturerName(product) },
+  { label: 'Listed on', value: formatDate(product.createdAt) || '—' },
+]
 
 function ProductDetails() {
   const { id: productId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  // The product page renders outside /buyer, so it reads the wishlist from the
+  // app-level WishlistProvider instead of BuyerProvider (which is not mounted
+  // here and would throw).
+  const { wishlist, toggleWishlist } = useWishlist()
   const [product, setProduct] = useState(null)
   const [related, setRelated] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [qty, setQty] = useState(1)
   const [activeTab, setActiveTab] = useState('description')
+  const [busy, setBusy] = useState(false)
   const { toast, showToast } = useToast()
   const addToCart = useAddToCart(showToast)
 
-  useEffect(() => {
-    let active = true
+  const load = useCallback(async () => {
     setLoading(true)
     setError('')
     setProduct(null)
     setQty(1)
+    try {
+      const res = await getProduct(productId)
+      const p = res?.data?.product
+      if (!p) throw new Error('This saree could not be found.')
+      setProduct(p)
 
-    getProduct(productId)
-      .then((res) => {
-        if (!active) return
-        const p = res.data.product
-        setProduct(p)
+      // Related sarees come from the same category. A failure here should not
+      // take the whole page down, so it is handled separately.
+      try {
+        const rel = await getProducts({ category: p.category, limit: 100 })
+        setRelated(
+          (rel?.data?.products || []).filter((r) => r._id !== p._id).slice(0, 4)
+        )
+      } catch {
         setRelated([])
-        return getProducts({ category: p.category, limit: 100 })
-          .then((rel) => {
-            if (!active) return
-            const siblings = (rel.data.products || []).filter((r) => r._id !== p._id).slice(0, 4)
-            setRelated(siblings)
-          })
-          .catch(() => {
-            setRelated([])
-          })
-      })
-      .catch((err) => {
-        if (active) setError(err.message)
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
-
-    return () => {
-      active = false
+      }
+    } catch (err) {
+      setError(err?.message || 'We could not load this saree.')
+    } finally {
+      setLoading(false)
     }
   }, [productId])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   if (loading) {
     return (
@@ -100,11 +120,10 @@ function ProductDetails() {
     return (
       <section className="pd-page pd-notfound">
         <div className="pd-container">
-          <ErrorState
-            title="Could not load this saree"
-            message={error}
-            onRetry={() => window.location.reload()}
-          />
+          <ErrorState title="Could not load this saree" message={error} onRetry={load} />
+          <div className="pd-notfound-actions">
+            <Link to="/products" className="pd-btn-primary">Back to Collection</Link>
+          </div>
         </div>
       </section>
     )
@@ -115,38 +134,56 @@ function ProductDetails() {
       <section className="pd-page pd-notfound">
         <div className="pd-container">
           <div className="pd-notfound-box">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              <line x1="8" y1="11" x2="14" y2="11" />
-            </svg>
             <h1>Product not found</h1>
-            <p>The saree you're looking for may have been moved or sold out.</p>
-            <Link to="/products" className="pd-btn-primary">Back to Collection</Link>          </div>
+            <p>This saree is not listed anymore. Browse the collection for what is available.</p>
+            <Link to="/products" className="pd-btn-primary">Back to Collection</Link>
+          </div>
         </div>
       </section>
     )
   }
 
-  const outOfStock = product.stock === 0
+  const stock = stockState(product)
+  const outOfStock = stock.tone === 'out'
   const mfgName = manufacturerName(product)
+  const inWishlist = Array.isArray(wishlist) && wishlist.some((item) => item._id === product._id)
+  const isBuyer = user?.role === 'buyer'
+  const maxQty = Math.max(Number(product.stock) || 0, 1)
+  const categoryLabel = product.category ? `${product.category} Silk` : 'Silk Saree'
+
+  const changeQty = (delta) => {
+    setQty((prev) => Math.min(Math.max(prev + delta, 1), maxQty))
+  }
 
   const handleAddToCart = async () => {
     if (outOfStock) return
-    const ok = await addToCart(product, qty)
-    if (ok) setActiveTab('description')
+    setBusy(true)
+    await addToCart(product, qty)
+    setBusy(false)
   }
 
   const handleBuyNow = async () => {
     if (outOfStock) return
+    setBusy(true)
     const ok = await addToCart(product, qty)
-    if (ok) {
-      navigate('/buyer/cart')
-    }
+    setBusy(false)
+    if (ok) navigate('/buyer/cart')
   }
 
-  const changeQty = (delta) => {
-    setQty((prev) => Math.min(Math.max(prev + delta, 1), Math.max(product.stock, 1)))
+  const handleWishlist = async () => {
+    if (!isBuyer) {
+      // Guests cannot save anything: send them to sign in and come back here.
+      showToast('Please sign in to save sarees to your wishlist', 'error')
+      const returnTo = encodeURIComponent(`/product/${productId}`)
+      navigate(`/login?returnTo=${returnTo}`)
+      return
+    }
+    try {
+      const added = await toggleWishlist(product._id)
+      showToast(added === false ? 'Removed from wishlist' : 'Saved to wishlist')
+    } catch (err) {
+      showToast(err?.message || 'Could not update your wishlist', 'error')
+    }
   }
 
   return (
@@ -156,8 +193,14 @@ function ProductDetails() {
           <Link to="/">Home</Link>
           <span className="pd-breadcrumb-sep">/</span>
           <Link to="/products">Collection</Link>
-          <span className="pd-breadcrumb-sep">/</span>
-          <Link to="/products" className="pd-breadcrumb-cat">{product.category} Silk</Link>
+          {product.category && (
+            <>
+              <span className="pd-breadcrumb-sep">/</span>
+              <Link to={`/products?category=${encodeURIComponent(product.category)}`} className="pd-breadcrumb-cat">
+                {categoryLabel}
+              </Link>
+            </>
+          )}
           <span className="pd-breadcrumb-sep">/</span>
           <span className="pd-breadcrumb-current">{product.name}</span>
         </nav>
@@ -168,25 +211,12 @@ function ProductDetails() {
               key={product._id}
               product={product}
               className="pd-main-image"
-              overlay={!outOfStock && product.stock <= 5
-                ? <span className="pd-badge">Only {product.stock} left</span>
-                : null}
-              zoomHint={(
-                <span className="pd-zoom-hint">
-                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    <line x1="11" y1="8" x2="11" y2="14" />
-                    <line x1="8" y1="11" x2="14" y2="11" />
-                  </svg>
-                  Hover to zoom
-                </span>
-              )}
+              overlay={stock.tone === 'low' ? <span className="pd-badge">{stock.label}</span> : null}
             />
           </div>
 
           <div className="pd-info">
-            <span className="pd-category">{product.category} Silk</span>
+            <span className="pd-category">{categoryLabel}</span>
             <h1 id="pd-title" className="pd-title">{product.name}</h1>
 
             <div className="pd-price-row">
@@ -206,27 +236,32 @@ function ProductDetails() {
               </button>
             </div>
 
-            <p className="pd-description">{product.description || `Handcrafted by master weavers using techniques passed down through generations, this ${product.category} silk saree embodies the artistry of India's handloom tradition.`}</p>
+            <p className="pd-description">
+              {product.description ||
+                'The manufacturer has not added a description for this saree yet.'}
+            </p>
 
             <div className="pd-qty-row">
               <div className="pd-qty-block">
                 <span className="pd-label">Quantity</span>
                 <div className="pd-qty">
-                  <button type="button" onClick={() => changeQty(-1)} disabled={qty <= 1} aria-label="Decrease quantity">
-                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
+                  <button type="button" onClick={() => changeQty(-1)} disabled={outOfStock || qty <= 1} aria-label="Decrease quantity">
+                    &minus;
                   </button>
                   <span className="pd-qty-value">{qty}</span>
-                  <button type="button" onClick={() => changeQty(1)} disabled={outOfStock || qty >= product.stock} aria-label="Increase quantity">
-                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
+                  <button
+                    type="button"
+                    onClick={() => changeQty(1)}
+                    disabled={outOfStock || qty >= maxQty}
+                    aria-label="Increase quantity"
+                  >
+                    +
                   </button>
                 </div>
               </div>
-              <StockBadge stock={product.stock} />
+              <span className={`pd-stock pd-stock-${stock.tone}`}>
+                <span className="pd-stock-dot"></span> {stock.label}
+              </span>
             </div>
 
             <div className="pd-actions">
@@ -234,51 +269,48 @@ function ProductDetails() {
                 type="button"
                 className="pd-btn-cart"
                 onClick={handleAddToCart}
-                disabled={outOfStock}
+                disabled={outOfStock || busy}
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <path d="M16 10a4 4 0 0 1 4 4v4" />
-                </svg>
-                {outOfStock ? 'Out of Stock' : 'Add to Cart'}
+                <IconBag size={18} />
+                {outOfStock ? 'Out of stock' : busy ? 'Adding…' : 'Add to Cart'}
               </button>
               <button
                 type="button"
                 className="pd-btn-buy"
                 onClick={handleBuyNow}
-                disabled={outOfStock}
+                disabled={outOfStock || busy}
               >
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
                 Buy Now
+                <IconArrowRight size={17} />
               </button>
+              {isBuyer && (
+                <button
+                  type="button"
+                  className={`pd-btn-wish${inWishlist ? ' active' : ''}`}
+                  onClick={handleWishlist}
+                  aria-pressed={inWishlist}
+                  title={inWishlist ? 'Remove from wishlist' : 'Save to wishlist'}
+                >
+                  <IconHeart size={18} />
+                  <span>{inWishlist ? 'Saved' : 'Wishlist'}</span>
+                </button>
+              )}
             </div>
 
+            {/* Facts taken straight from how the store works - no shipping,
+                certificate or returns promises that the backend cannot keep. */}
             <ul className="pd-trust">
               <li>
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                Authenticity certificate included
+                <IconPackage size={18} />
+                Your order goes directly to {mfgName}
               </li>
               <li>
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="1" y="3" width="15" height="13" />
-                  <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                  <circle cx="5.5" cy="18.5" r="2.5" />
-                  <circle cx="18.5" cy="18.5" r="2.5" />
-                </svg>
-                Free insured worldwide shipping
+                <IconCoin size={18} />
+                Payment is cash on delivery
               </li>
               <li>
-                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="3 6 5 6 21 18" />
-                  <path d="M21 12v9H3V6" />
-                  <path d="M3 6l3-3h6l3 3" />
-                </svg>
-                7-day easy returns
+                <IconAlert size={18} />
+                Stock is re-checked when the order is placed
               </li>
             </ul>
           </div>
@@ -329,16 +361,13 @@ function ProductDetails() {
               <div className="pd-panel-inner">
                 <h2>About this saree</h2>
                 <p>
-                  {product.description || `Handcrafted by master weavers using techniques passed down through generations, this ${product.category} silk saree embodies the artistry of India's handloom tradition. Each saree takes 7-14 days to complete on a traditional handloom, ensuring every thread tells a story of dedication and craft.`}
+                  {product.description ||
+                    'The manufacturer has not added a description for this saree yet. Check the specifications tab for the details that are on record.'}
                 </p>
                 <div className="pd-note">
-                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                  </svg>
-                  Minor variations in colour and motif are inherent to handwoven textiles and
-                  add to each piece's uniqueness.
+                  <IconAlert size={20} />
+                  Colour and motif can look slightly different from one handwoven piece to
+                  the next, and screen colours are not exact.
                 </div>
               </div>
             )}
@@ -347,79 +376,47 @@ function ProductDetails() {
               <div className="pd-panel-inner">
                 <h2>Specifications</h2>
                 <div className="pd-specs">
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Category</span>
-                    <span className="pd-spec-value">{product.category} Silk</span>
-                  </div>
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Price</span>
-                    <span className="pd-spec-value">{formatINR(product.price)}</span>
-                  </div>
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Stock</span>
-                    <span className="pd-spec-value">{product.stock > 0 ? `${product.stock} available` : 'Out of stock'}</span>
-                  </div>
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Listed On</span>
-                    <span className="pd-spec-value">{formatDate(product.createdAt) || '—'}</span>
-                  </div>
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Length</span>
-                    <span className="pd-spec-value">6.3 m + blouse piece</span>
-                  </div>
-                  <div className="pd-spec">
-                    <span className="pd-spec-label">Care</span>
-                    <span className="pd-spec-value">Dry clean only</span>
-                  </div>
+                  {SPEC_ROWS(product).map((row) => (
+                    <div className="pd-spec" key={row.label}>
+                      <span className="pd-spec-label">{row.label}</span>
+                      <span className="pd-spec-value">{row.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
             {activeTab === 'manufacturer' && (
               <div className="pd-panel-inner">
-                <h2>Manufacturer Information</h2>
+                <h2>Manufacturer</h2>
                 <div className="pd-manufacturer">
-                  <div className="pd-mfg-avatar">
-                    <svg aria-hidden="true" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <line x1="3" y1="3" x2="3" y2="21" />
-                      <line x1="21" y1="3" x2="21" y2="21" />
-                      <line x1="5" y1="8" x2="19" y2="8" />
-                      <line x1="5" y1="13" x2="19" y2="13" />
-                      <line x1="5" y1="18" x2="19" y2="18" />
-                    </svg>
+                  <div className="pd-mfg-avatar" aria-hidden="true">
+                    <IconStore size={30} />
                   </div>
                   <div className="pd-mfg-details">
                     <div className="pd-mfg-name-row">
                       <h3>{mfgName}</h3>
-                      <span className="pd-verified">
-                        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        Verified
-                      </span>
                     </div>
                     <p className="pd-mfg-desc">
-                      A registered WeaveConnect artisan partner empowering local weaving
-                      families through fair-trade partnerships.
+                      {mfgName} is the seller who listed this saree. The order and the
+                      payment go to them, and their store shows everything they have
+                      listed right now.
                     </p>
                     <div className="pd-mfg-stats">
                       <span>
-                        <strong>Direct</strong> Fair-trade sourcing
+                        <strong>{Number(product.stock) || 0}</strong> in stock
                       </span>
                       <span>
-                        <strong>Handloom</strong> Certified craft
+                        <strong>{Number(product.soldCount) || 0}</strong> sold
                       </span>
                       <span>
-                        <strong>{product.stock}</strong> Units in stock
+                        <strong>{categoryLabel}</strong> category
                       </span>
                     </div>
                     {product.manufacturer?._id && (
                       <Link to={`/store/${product.manufacturer._id}`} className="pd-store-link">
-                        Visit {product.manufacturer.name || 'this seller'}'s store
-                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9 18 15 12 9 6" />
-                        </svg>
+                        Visit {mfgName}'s store
+                        <IconArrowRight size={16} />
                       </Link>
                     )}
                   </div>
@@ -438,19 +435,19 @@ function ProductDetails() {
         {related.length > 0 && (
           <div className="pd-related">
             <div className="pd-related-header">
-              <span className="pd-related-badge">You May Also Like</span>
+              <span className="pd-related-badge">More from {product.category || 'the collection'}</span>
               <h2>Related Sarees</h2>
             </div>
             <div className="pd-related-grid">
               {related.map((item) => (
                 <article key={item._id} className="pd-rel-card">
-                  <a href={productLink(item)} className="pd-rel-image" aria-label={`View ${item.name}`}>
+                  <Link to={`/product/${item._id}`} className="pd-rel-image" aria-label={`View ${item.name}`}>
                     <img src={productImage(item)} alt={item.name} loading="lazy" />
-                  </a>
+                  </Link>
                   <div className="pd-rel-body">
                     <span className="pd-rel-category">{item.category}</span>
                     <h3 className="pd-rel-name">
-                      <a href={productLink(item)}>{item.name}</a>
+                      <Link to={`/product/${item._id}`}>{item.name}</Link>
                     </h3>
                     <div className="pd-rel-price-row">
                       <span className="pd-rel-price">{formatINR(item.price)}</span>

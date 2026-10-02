@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getProducts } from '../api/products'
-import { CATEGORIES, productImage, productImageCount, productLink } from '../utils/product'
+import { CATEGORIES, availabilityLabel, productImage, productImageCount, productLink } from '../utils/product'
 import { formatINR } from '../utils/format'
+import { useAuth } from '../context/AuthContext'
+import { useWishlist } from '../context/WishlistContext'
 import { useAddToCart } from '../hooks/useAddToCart'
 import useEscape from '../hooks/useEscape'
 import { SkeletonGrid } from './ui/Skeleton'
@@ -18,6 +19,9 @@ const pageSize = 8
 
 function Products() {
   const [params, setParams] = useSearchParams()
+  const { user } = useAuth()
+  const isBuyer = user?.role === 'buyer'
+  const { wishlistCount, toggleWishlist, isWishlisted } = useWishlist()
   const [search, setSearch] = useState('')
   // The text box updates instantly, but the API call waits for a short pause in
   // typing. Without this, every single keystroke would send a request.
@@ -30,7 +34,7 @@ function Products() {
   const [maxPrice, setMaxPrice] = useState('')
   const [sortBy, setSortBy] = useState('featured')
   const [page, setPage] = useState(1)
-  const [wishlist, setWishlist] = useState({})
+  const [busyId, setBusyId] = useState(null)
   const [quickView, setQuickView] = useState(null)
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,9 +51,9 @@ function Products() {
         category: category === 'All' ? '' : category,
         limit: 100,
       })
-      setProducts(res.data.products || [])
+      setProducts(res?.data?.products || [])
     } catch (err) {
-      setError(err.message)
+      setError(err?.message || 'We could not load the collection.')
     } finally {
       setLoading(false)
     }
@@ -105,10 +109,28 @@ function Products() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category])
 
-  const toggleWishlist = (id) => {
-    const next = !wishlist[id]
-    setWishlist((prev) => ({ ...prev, [id]: next }))
-    showToast(next ? 'Added to wishlist' : 'Removed from wishlist')
+  /**
+   * Wishlist writes go through WishlistContext, which owns the real
+   * POST/DELETE wishlist endpoints. This page previously kept its own local
+   * object map, so the heart toggled on screen but was never saved.
+   */
+  const handleToggleWishlist = async (id) => {
+    try {
+      const nowSaved = await toggleWishlist(id)
+      if (nowSaved === null) {
+        showToast('Please sign in to save sarees to your wishlist', 'error')
+        return
+      }
+      showToast(nowSaved ? 'Added to wishlist' : 'Removed from wishlist')
+    } catch (err) {
+      showToast(err?.message || 'Could not update your wishlist', 'error')
+    }
+  }
+
+  const handleAddToCart = async (product) => {
+    setBusyId(product._id)
+    await addToCart(product, 1)
+    setBusyId(null)
   }
 
   useEscape(() => setQuickView(null))
@@ -252,9 +274,11 @@ function Products() {
                 </button>
               )}
             </p>
-            <p className="pl-wishlist-count" aria-live="polite">
-              {Object.values(wishlist).filter(Boolean).length} in wishlist
-            </p>
+            {isBuyer && (
+              <Link to="/buyer/wishlist" className="pl-wishlist-count" aria-live="polite">
+                {wishlistCount} in wishlist
+              </Link>
+            )}
           </div>
         </div>
 
@@ -277,25 +301,29 @@ function Products() {
         ) : (
           <div className="pl-grid">
             {paged.map((product, index) => {
-              const isWishlisted = !!wishlist[product._id]
-              const available = product.stock > 0
+              const inWishlist = isWishlisted(product._id)
+              const available = (product.isAvailable !== false) && (Number(product.stock) || 0) > 0
               return (
                 <article key={product._id} className="pl-card" style={{ '--index': index }}>
                   <div className="pl-card-image">
-                    <img src={productImage(product)} alt={product.name} loading="lazy" />
+                    <Link to={productLink(product)} className="pl-card-image-link">
+                      <img src={productImage(product)} alt={product.name} loading="lazy" />
+                    </Link>
                     {!available && <span className="pl-badge">Sold Out</span>}
                     <PhotoCountBadge count={productImageCount(product)} className="pl-photo-count" />
-                    <button
-                      type="button"
-                      className={`pl-wishlist ${isWishlisted ? 'active' : ''}`}
-                      onClick={() => toggleWishlist(product._id)}
-                      aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
-                      aria-pressed={isWishlisted}
-                    >
-                      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill={isWishlisted ? '#d64545' : 'none'} stroke={isWishlisted ? '#d64545' : 'currentColor'} strokeWidth="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                      </svg>
-                    </button>
+                    {isBuyer && (
+                      <button
+                        type="button"
+                        className={`pl-wishlist ${inWishlist ? 'active' : ''}`}
+                        onClick={() => handleToggleWishlist(product._id)}
+                        aria-label={inWishlist ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+                        aria-pressed={inWishlist}
+                      >
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill={inWishlist ? '#d64545' : 'none'} stroke={inWishlist ? '#d64545' : 'currentColor'} strokeWidth="2">
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                      </button>
+                    )}
                     <div className="pl-quickview-wrap">
                       <button type="button" className="pl-quickview" onClick={() => setQuickView(product)}>
                         <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -307,9 +335,9 @@ function Products() {
                     </div>
                   </div>
                   <div className="pl-card-body">
-                    <span className="pl-category">{product.category} Silk</span>
+                    <span className="pl-category">{product.category}</span>
                     <h3 className="pl-name">
-                      <a href={productLink(product)} className="pl-name-link">{product.name}</a>
+                      <Link to={productLink(product)} className="pl-name-link">{product.name}</Link>
                     </h3>
                     {product.totalReviews > 0 ? (
                       <div className="pl-card-rating">
@@ -318,19 +346,24 @@ function Products() {
                     ) : (
                       <span className="pl-card-no-rating">No reviews yet</span>
                     )}
-                    <p className="pl-desc">{product.description || 'Handwoven pure silk saree.'}</p>
+                    <p className="pl-desc">{product.description || 'No description has been added for this saree yet.'}</p>
                     <div className="pl-pricing">
                       <span className="pl-price">{formatINR(product.price)}</span>
                     </div>
                     <div className="pl-card-actions">
-                      <Link to="/buyer/cart" className="pl-btn-cart">
+                      <button
+                        type="button"
+                        className="pl-btn-cart"
+                        onClick={() => handleAddToCart(product)}
+                        disabled={!available || busyId === product._id}
+                      >
                         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                           <line x1="3" y1="6" x2="21" y2="6" />
                           <path d="M16 10a4 4 0 0 1 4 4v4" />
                         </svg>
-                        Go to Cart
-                      </Link>
+                        {busyId === product._id ? 'Adding…' : 'Add to Cart'}
+                      </button>
                     </div>
                   </div>
                 </article>
@@ -393,34 +426,39 @@ function Products() {
               {quickView.stock <= 0 && <span className="pl-badge">Sold Out</span>}
             </div>
             <div className="pl-modal-body">
-              <span className="pl-category">{quickView.category} Silk</span>
+              <span className="pl-category">{quickView.category}</span>
               <h3 id="quickview-title">{quickView.name}</h3>
-              <p className="pl-modal-desc">{quickView.description || 'Handwoven pure silk saree.'}</p>
+              <p className="pl-modal-desc">{quickView.description || 'Details for this saree have not been added yet.'}</p>
               <div className="pl-pricing">
                 <span className="pl-price">{formatINR(quickView.price)}</span>
               </div>
               <ul className="pl-modal-features">
-                <li>100% pure handwoven silk</li>
-                <li>Certificate of authenticity included</li>
-                <li>Free insured shipping worldwide</li>
-                <li>7-day easy returns</li>
+                {quickView.category && <li>{quickView.category} silk saree</li>}
+                {quickView.manufacturer?.name && <li>Woven by {quickView.manufacturer.name}</li>}
+                <li>{availabilityLabel(quickView)}</li>
+                {quickView.totalReviews > 0 && (
+                  <li>Rated {Number(quickView.averageRating).toFixed(1)} from {quickView.totalReviews} reviews</li>
+                )}
               </ul>
               <div className="pl-modal-actions">
-                <button
-                  type="button"
-                  className={`btn-pl-secondary ${wishlist[quickView._id] ? 'wishlisted' : ''}`}
-                  onClick={() => toggleWishlist(quickView._id)}
-                >
-                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill={wishlist[quickView._id] ? '#d64545' : 'none'} stroke={wishlist[quickView._id] ? '#d64545' : 'currentColor'} strokeWidth="2">
-                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                  </svg>
-                  {wishlist[quickView._id] ? 'Wishlisted' : 'Add to Wishlist'}
-                </button>
+                {isBuyer && (
+                  <button
+                    type="button"
+                    className={`btn-pl-secondary ${isWishlisted(quickView._id) ? 'wishlisted' : ''}`}
+                    onClick={() => handleToggleWishlist(quickView._id)}
+                    aria-pressed={isWishlisted(quickView._id)}
+                  >
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill={isWishlisted(quickView._id) ? '#d64545' : 'none'} stroke={isWishlisted(quickView._id) ? '#d64545' : 'currentColor'} strokeWidth="2">
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {isWishlisted(quickView._id) ? 'Wishlisted' : 'Add to Wishlist'}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn-pl-primary"
-                  disabled={quickView.stock <= 0}
-                  onClick={() => { addToCart(quickView); setQuickView(null) }}
+                  disabled={quickView.stock <= 0 || busyId === quickView._id}
+                  onClick={() => { handleAddToCart(quickView); setQuickView(null) }}
                 >
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
@@ -429,9 +467,9 @@ function Products() {
                   </svg>
                   Add to Cart
                 </button>
-                <a href={productLink(quickView)} className="btn-pl-secondary pl-view-details">
+                <Link to={productLink(quickView)} className="btn-pl-secondary pl-view-details">
                   View Full Details
-                </a>
+                </Link>
               </div>
             </div>
           </div>

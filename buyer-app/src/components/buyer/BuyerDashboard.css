@@ -430,6 +430,35 @@
   color: #2e8b57;
 }
 
+.bd-rec-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 0.7rem;
+  padding: 0.55rem 1rem;
+  border: 1px solid #d8c69a;
+  border-radius: 999px;
+  background: #fffaf0;
+  color: #1a1612;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.bd-rec-add:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d4af37 0%, #b4825a 100%);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+.bd-rec-add:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .bd-account-card h2 {
   font-family: 'Playfair Display', Georgia, serif;
   font-size: 1.15rem;
@@ -730,7 +759,7 @@
     flex-wrap: wrap;
   }
 
-  .bd-order-right {
+.bd-order-right {
     flex-direction: row;
     align-items: center;
     gap: 0.6rem;

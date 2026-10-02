@@ -7,6 +7,8 @@ import { IconSearch } from '../../components/ui/Icons'
 import { SkeletonCard } from '../../components/ui/Skeleton'
 import { EmptyState } from '../../components/ui/States'
 import { PhotoCountBadge } from '../../components/ui/PhotoCountBadge'
+import { useToast } from '../../hooks/useToast'
+import { useAddToCart } from '../../hooks/useAddToCart'
 
 const CATEGORIES = ['All', 'Kanchipuram', 'Banarasi', 'Mysore', 'Patola', 'Pochampally', 'Paithani']
 const SORTS = [
@@ -22,6 +24,15 @@ export default function BuyerCollection() {
   const [sort, setSort] = useState('newest')
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState(null)
+  const { showToast } = useToast()
+  const addToCart = useAddToCart(showToast)
+
+  const handleAddToCart = async (product) => {
+    setBusyId(product._id)
+    await addToCart(product, 1)
+    setBusyId(null)
+  }
 
   useEffect(() => {
     let alive = true
@@ -99,6 +110,14 @@ export default function BuyerCollection() {
                   <div className="bd-rec-price-row">
                     <span className="bd-rec-price">{formatINR(p.price)}</span>
                   </div>
+                  <button
+                    type="button"
+                    className="bd-rec-add"
+                    onClick={() => handleAddToCart(p)}
+                    disabled={(p.stock ?? 0) < 1 || busyId === p._id}
+                  >
+                    {busyId === p._id ? 'Adding…' : (p.stock ?? 0) < 1 ? 'Sold Out' : 'Add to Cart'}
+                  </button>
                 </div>
               </article>
             ))}

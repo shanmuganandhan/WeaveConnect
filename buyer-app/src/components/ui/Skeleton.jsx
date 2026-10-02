@@ -40,3 +40,21 @@ export function SkeletonGrid({ count = 4, footer = false, className = '' }) {
     </div>
   )
 }
+
+/** Row-shaped placeholder, used by the cart and the order list. */
+export function SkeletonList({ rows = 3, className = '' }) {
+  return (
+    <div className={`skeleton-list ${className}`} aria-hidden="true">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="skeleton-list-row">
+          <Skeleton className="skeleton-list-thumb" />
+          <div className="skeleton-list-body">
+            <Skeleton className="skeleton-list-title" />
+            <SkeletonText lines={2} width="70%" />
+          </div>
+          <Skeleton className="skeleton-list-side" />
+        </div>
+      ))}
+    </div>
+  )
+}
