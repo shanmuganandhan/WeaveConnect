@@ -339,7 +339,7 @@
 
 .md-sales-wrap {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
   gap: 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -350,6 +350,7 @@
   border-radius: 16px;
   padding: 1.4rem;
   box-shadow: 0 4px 14px rgba(26, 22, 18, 0.05);
+  min-width: 0;
 }
 
 .md-card-header {
@@ -389,6 +390,7 @@
   justify-content: flex-end;
   height: 100%;
   position: relative;
+  min-width: 0;
 }
 
 .md-chart-bar {
@@ -494,7 +496,7 @@
 
 .md-dashboard-bottom {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
@@ -628,8 +630,9 @@
 
 .md-quick-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.9rem;
+  min-width: 0;
 }
 
 .md-quick-card {
@@ -643,6 +646,7 @@
   cursor: pointer;
   text-align: left;
   font-family: inherit;
+  min-width: 0;
   transition: all 0.3s ease;
 }
 
@@ -1392,7 +1396,7 @@
   .md-sales-wrap,
   .md-dashboard-bottom,
   .md-profile-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1422,6 +1426,8 @@
     overflow-x: auto;
     flex-wrap: nowrap;
     padding-bottom: 0.25rem;
+    min-width: 0;
+    width: 100%;
   }
 
   .md-chip {
@@ -1435,6 +1441,11 @@
   .md-stats {
     grid-template-columns: 1fr 1fr;
     gap: 0.9rem;
+  }
+
+  .md-quick-grid {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
   }
 
   .md-stat-card {

@@ -20,9 +20,9 @@ export default function BuyerTopbar({ userName, onLogout }) {
         <span className="bd-logo-text">WeaveConnect</span>
       </NavLink>
       <div className="bd-topbar-right">
-        <NavLink to="/products" className="bd-topbar-link">Browse Collection</NavLink>
-        <NavLink to="/buyer/orders" className="bd-topbar-link">Orders</NavLink>
-        <NavLink to="/buyer/wishlist" className="bd-topbar-link">Wishlist</NavLink>
+        <NavLink to="/products" className="bd-topbar-link bd-topbar-browse">Browse Collection</NavLink>
+        <NavLink to="/buyer/orders" className="bd-topbar-link bd-topbar-orders">Orders</NavLink>
+        <NavLink to="/buyer/wishlist" className="bd-topbar-link bd-topbar-wish">Wishlist</NavLink>
         <NavLink to="/buyer/cart" className="bd-topbar-link">Cart</NavLink>
         <button type="button" className="bd-topbar-link bd-topbar-btn" onClick={onLogout}>Sign Out</button>
         <div className="bd-topbar-avatar" aria-hidden="true">{initials(userName)}</div>
