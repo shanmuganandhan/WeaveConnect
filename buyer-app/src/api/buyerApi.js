@@ -23,6 +23,30 @@ export function createMyOrder(items, shippingAddress) {
   return api.post('/orders', { items, shippingAddress, paymentMethod: 'cod' })
 }
 
+// Buyer self-service cancellation. The server re-checks ownership and that
+// the status is still pending/accepted before changing anything.
+export function cancelMyOrder(id) {
+  return api.patch(`/orders/${id}/cancel`)
+}
+
+// --- Razorpay -------------------------------------------------------------
+// Online checkout: either { items, shippingAddress } for a fresh order or
+// { orderId } to retry an order that was created but not paid yet. The
+// amount always comes back from the server, computed from DB prices.
+export function createPaymentOrder(payload) {
+  return api.post('/payment/create-order', payload)
+}
+
+// The server recomputes Razorpay's signature with its own secret before the
+// order is ever marked paid - the browser's claim is not believed.
+export function verifyPayment(payload) {
+  return api.post('/payment/verify', payload)
+}
+
+export function reportPaymentFailure(orderId) {
+  return api.post('/payment/failure', { orderId })
+}
+
 export function getMyCart() {
   return api.get('/cart')
 }

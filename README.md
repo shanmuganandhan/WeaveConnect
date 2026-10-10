@@ -65,7 +65,8 @@ Backend variables live in `server/.env` (copy it from `server/.env.example`). `s
 | `PORT`                  | Server port                        | `5000`                           |
 | `MONGODB_URI`           | MongoDB connection string          | `mongodb://localhost:27017/weaveconnect` |
 | `JWT_SECRET`            | Secret used to sign JWTs           | *(required, min 16 chars)*       |
-| `JWT_EXPIRE`            | Token expiry (e.g. `7d`)           | `7d`                             |
+| `JWT_EXPIRE`            | Refresh-token expiry (e.g. `7d`)   | `7d`                             |
+| `JWT_ACCESS_EXPIRE`     | Short-lived access-token expiry    | `15m`                            |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name              | *(only for `POST /api/upload`)*  |
 | `CLOUDINARY_API_KEY`    | Cloudinary API key                 | *(only for `POST /api/upload`)*  |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret              | *(only for `POST /api/upload`)*  |
@@ -74,6 +75,11 @@ Backend variables live in `server/.env` (copy it from `server/.env.example`). `s
 | `EMAIL_USER`            | SMTP username (email address)      | *(required for forgot password)* |
 | `EMAIL_PASSWORD`        | SMTP password (Gmail App Password) | *(required for forgot password)* |
 | `EMAIL_FROM`            | Sender address for OTP emails      | *(required for forgot password)* |
+| `RAZORPAY_KEY_ID`       | Razorpay test-mode key id          | *(only for online checkout)*     |
+| `RAZORPAY_KEY_SECRET`   | Razorpay test-mode key secret      | *(only for online checkout)*     |
+| `CORS_ORIGIN`           | Comma-separated allowed origins    | *(empty = any origin)*           |
+
+Optional rate-limit overrides: `AUTH_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_MAX`, `OTP_RATE_LIMIT_MAX`, `OTP_VERIFY_RATE_LIMIT_MAX`, `PAYMENT_RATE_LIMIT_MAX`.
 
 Optional seeding overrides: `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, `SEED_ADMIN_NAME`.
 
@@ -82,13 +88,15 @@ Notes:
 - `JWT_SECRET` has no default. The server refuses to start with a missing or too-short secret, so a weak secret can never reach production by accident.
 - The Cloudinary values are only used by the image-upload endpoint. The demo data uses local images that already ship inside `buyer-app/public/images`, so a Cloudinary account is **not** needed for the demo.
 - The email values are only used by the forgot-password OTP flow. With an App Password (not your normal Google password) the reset email works on a real Gmail address.
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are only needed for "Pay online". Without them the API answers `503` for the payment endpoints and cash on delivery remains the only usable option. The secret stays on the server.
+- The Razorpay checkout script itself is loaded from Razorpay's CDN in the browser; only the public key id is ever sent to the client.
 - No secret is ever sent to the browser. The frontends only ever receive a JWT.
 
 ## Roles
 
 | Role           | Capabilities                                                                                   |
 |----------------|-----------------------------------------------------------------------------------------------|
-| `buyer`        | Browse/search products, manage cart and wishlist, COD checkout, review purchases, view own orders |
+| `buyer`        | Browse/search products, manage cart and wishlist, check out with cash on delivery or Razorpay, cancel own orders, review purchases, view own orders |
 | `manufacturer` | Apply for seller account, manage own products and stock, upload images, view and update orders for their own products, sales statistics |
 | `admin`        | Approve/block sellers and users, manage every product, order and user, platform analytics and settings |
 
@@ -117,12 +125,17 @@ Errors use `{ "success": false, "message": "..." }`, with an optional `errors` a
 | Method | Endpoint               | Auth | Description |
 |--------|------------------------|------|-------------|
 | POST   | `/register`            | —    | Register (`name`, `email`, `password`, optional `phone`, `role`) |
-| POST   | `/login`               | —    | Login (`email`, `password`) → returns a JWT |
+| POST   | `/login`               | —    | Login (`email`, `password`) → returns a short-lived `token` and a `refreshToken` |
+| POST   | `/refresh`             | —    | Exchange a valid `refreshToken` for a new token pair (the old one is rotated) |
+| POST   | `/logout`              | Token optional | Revoke this session (`refreshToken` in the body works even when the access token has expired) |
+| POST   | `/logout-all`          | Token | Revoke every session of the user and bump their session version |
 | POST   | `/forgot-password`     | —    | Request a 6-digit OTP for `email` |
 | POST   | `/verify-otp`          | —    | Verify `email` + `otp` → returns a short-lived `resetToken` |
-| POST   | `/reset-password`      | —    | Set a new password with `resetToken`, `newPassword`, `confirmPassword` |
+| POST   | `/reset-password`      | —    | Set a new password with `resetToken`, `newPassword`, `confirmPassword` (all sessions are signed out) |
 
-Forgot-password rules: the OTP is emailed (never returned by the API), stored only as a hash, expires after 10 minutes, allows 5 attempts, and has a resend cooldown. Unknown addresses get the same generic reply as known ones. If the SMTP send fails, the stored OTP is deleted and the API answers with a clear `503` instead of pretending the email was sent.
+Sessions: each login creates a `Session` record holding a hash of the refresh token. Refreshing rotates it (the previous token stops working), and logout deletes it server-side, so a stolen or leftover token cannot be replayed after sign-out. Each app's Axios client silently calls `/refresh` once when a request comes back `401`, and only redirects to the login page when that fails.
+
+Forgot-password rules: the OTP is emailed (never returned by the API), stored only as a hash, expires after 10 minutes, allows 5 attempts, and has a resend cooldown. Unknown addresses get the same generic reply as known ones. If the SMTP send fails, the API answers with a clear `502` instead of pretending the email was sent, and the user can retry once the cooldown has passed.
 
 ### Products — `/api/products`
 
@@ -151,7 +164,8 @@ Quantities below 1 or above the available stock are rejected. Creating an order 
 
 | Method | Endpoint                                | Auth         | Description |
 |--------|-----------------------------------------|--------------|-------------|
-| POST   | `/api/orders`                           | Buyer        | Create an order (`items`, `shippingAddress`, optional `paymentMethod: 'cod'`). The total is always computed on the server |
+| POST   | `/api/orders`                           | Buyer        | Create an order (`items`, `shippingAddress`, `paymentMethod: 'cod'`). The total is always computed on the server |
+| PATCH  | `/api/orders/:id/cancel`                | Buyer        | Cancel own order while it is still `pending` or `accepted`; reserved stock is returned |
 | GET    | `/api/orders`                           | Any role     | Buyers see their own orders, manufacturers see orders containing their products, admins see all |
 | GET    | `/api/orders/:id`                       | Any role     | One order, with the same visibility rules |
 | GET    | `/api/manufacturer/orders`              | Manufacturer | The manufacturer's own order list, including each item's share of the total |
@@ -166,7 +180,30 @@ Shipping address is stored on the order as `name`, `phone`, `addressLine1`, `add
 
 ### Payment
 
-Cash on Delivery only. The API rejects any `paymentMethod` other than `cod`, and Razorpay is **not** integrated in this project, so no payment gateway keys exist anywhere in the repository. COD is a deliberate, complete feature rather than a placeholder.
+Two methods, chosen on the checkout screen:
+
+| Method | Where it is created | Notes |
+|--------|--------------------|-------|
+| Cash on delivery | `POST /api/orders` with `paymentMethod: 'cod'` | Nothing is charged; the manufacturer is paid on delivery |
+| Online (Razorpay) | `POST /api/payment/create-order` | Card / UPI / netbanking; the order is marked `paid` only after the server verifies Razorpay's signature |
+
+`/api/payment` — buyer only, rate-limited:
+
+| Method | Endpoint        | Description |
+|--------|-----------------|-------------|
+| POST   | `/create-order` | `{ items, shippingAddress }` for a fresh checkout, or `{ orderId }` to retry an unpaid order. Returns `keyId`, `amount` (paise), `razorpayOrderId` and the order |
+| POST   | `/verify`       | `{ orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature }` — the HMAC signature is recomputed with the secret before the order is marked `paid` |
+| POST   | `/failure`      | `{ orderId }` — records a dismissed or declined attempt so the order is retryable and never claims success |
+
+How the online flow stays safe:
+
+- The amount is always recomputed from MongoDB prices; the browser never sends an amount, price or discount.
+- The Razorpay order is created first, then stock is reserved and the saved cart is emptied — so a gateway failure cannot leave reserved stock the buyer never ordered, and a refresh cannot bring already-ordered items back. Retrying a payment reuses the same order instead of reserving stock twice.
+- The browser's "payment succeeded" claim is never trusted: verification recomputes `HMAC_SHA256(order_id|payment_id)` with the server-side secret and compares it in constant time. A forged response simply gets `400`.
+- Verification is idempotent: submitting the same verified payment twice returns success instead of double-processing.
+- Cancelling a paid Razorpay order starts a refund (`refundStatus`: `not_requested` → `pending` → `processed` / `failed`); "processed" is only written after Razorpay confirms it.
+
+If `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not set, the payment endpoints answer `503` and cash on delivery remains the only usable option.
 
 ### Wishlist — `/api/wishlist` (buyer only)
 
@@ -272,7 +309,7 @@ How the seed behaves:
 
 ## Testing
 
-The backend has a self-contained end-to-end suite (192 assertions) covering registration, login, role protection, seller approval, products, search, cart, stock limits, checkout, shipping addresses, order visibility, reviews, analytics and the whole forgot-password OTP flow (including expiry, wrong OTPs, the attempt limit, the resend cooldown and unknown addresses).
+The backend has a self-contained end-to-end suite (156 checks) covering registration, login, role protection, seller approval, products, search, cart, stock limits, checkout, shipping addresses, order visibility, reviews and analytics, plus the forgot-password OTP flow (the code is read back out of the fake SMTP inbox, then a wrong OTP, a reused OTP, a reused reset token, the resend cooldown and unknown addresses are all checked) and the payment guards (`401`/`403`/`400` and the unconfigured-gateway `503`).
 
 ```bash
 cd server
@@ -284,6 +321,13 @@ npm test
 1. Starts the API on port `5050` against an isolated test database (`weaveconnect_test`) and a local fake SMTP server, so your development data and real inbox are never touched.
 2. Runs the full suite.
 3. Shuts everything down and exits `0` on success, `1` on any failure.
+
+There is also a smaller manual check for the session and payment endpoints — refresh-token rotation, logout revoking both token kinds, the unconfigured-gateway `503`, the unknown-order `404` and login validation:
+
+```bash
+cd server
+node scripts/smokeSessionPayment.js
+```
 
 The frontends have no test suite; validate them with `npm run build` in each app.
 

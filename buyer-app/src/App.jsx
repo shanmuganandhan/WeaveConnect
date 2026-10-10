@@ -9,6 +9,7 @@ import PublicLayout from './layouts/PublicLayout'
 import HomePage from './components/HomePage'
 import Login from './components/Login'
 import Register from './components/Register'
+import ForgotPassword from './components/ForgotPassword'
 import Products from './components/Products'
 import ProductDetails from './components/ProductDetails'
 import ManufacturerStore from './components/ManufacturerStore'
@@ -84,6 +85,12 @@ export default function App() {
         <Route path="/login" element={user ? <Navigate to={returnTo || homeRouteFor(user.role)} replace /> : <Login />} />
 
         <Route path="/register" element={user ? <Navigate to={homeRouteFor(user.role)} replace /> : <Register />} />
+
+        {/* Password recovery: email OTP -> verify -> new password. Public. */}
+        <Route
+          path="/forgot-password"
+          element={user ? <Navigate to={homeRouteFor(user.role)} replace /> : <ForgotPassword />}
+        />
 
 
       <Route path="/buyer" element={

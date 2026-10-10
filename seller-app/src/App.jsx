@@ -1,10 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './context/AuthContext'
+import { useAuth, homeRouteFor } from './context/AuthContext'
 import { ManufacturerProvider } from './context/ManufacturerContext'
 import ManufacturerLayout from './layouts/ManufacturerLayout'
 
 import SellerLogin from './pages/SellerLogin'
 import SellerRegister from './pages/manufacturer/SellerRegister'
+import ForgotPassword from './components/ForgotPassword'
 import ManufacturerDashboard from './pages/manufacturer/ManufacturerDashboard'
 import ManufacturerProducts from './pages/manufacturer/ManufacturerProducts'
 import ManufacturerAddProduct from './pages/manufacturer/ManufacturerAddProduct'
@@ -32,6 +33,12 @@ export default function App() {
 
       <Route path="/seller/login" element={user?.role === 'manufacturer' ? <Navigate to="/seller/dashboard" replace /> : <SellerLogin />} />
       <Route path="/seller/register" element={user?.role === 'manufacturer' ? <Navigate to="/seller/dashboard" replace /> : <SellerRegister />} />
+
+      {/* Password recovery: email OTP -> verify -> new password. Public. */}
+      <Route
+        path="/forgot-password"
+        element={user ? <Navigate to={homeRouteFor(user.role)} replace /> : <ForgotPassword />}
+      />
 
       <Route path="/seller" element={
         <RoleProtectedRoute allowedRoles={['manufacturer']}>

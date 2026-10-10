@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../../context/CartContext'
 import { useBuyer } from '../../context/BuyerContext'
+import { useAuth } from '../../context/AuthContext'
 import { createMyOrder } from '../../api/buyerApi'
+import { payOnline, reportPaymentFailure } from '../../utils/razorpay'
 import { formatINR } from '../../utils/format'
 import { productImage, productLink } from '../../utils/product'
 import { IconAlert, IconArrowRight, IconBag } from '../../components/ui/Icons'
@@ -58,10 +60,15 @@ export default function BuyerCheckout() {
   const navigate = useNavigate()
   const { items, loading, clearCart } = useCart()
   const { refresh } = useBuyer()
+  const { user } = useAuth()
   const [form, setForm] = useState(EMPTY_FORM)
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
   const [placing, setPlacing] = useState(false)
+  const [method, setMethod] = useState('cod')
+  // Set once an online order exists server-side, so a dismissed or failed
+  // payment window retries the SAME order instead of reserving stock twice.
+  const [pendingOrderId, setPendingOrderId] = useState(null)
 
   const lines = useMemo(
     () =>
@@ -102,38 +109,81 @@ export default function BuyerCheckout() {
     if (placing) return
 
     setPlacing(true)
+
+    const payload = lines.map((line) => ({
+      productId: line.product?._id,
+      quantity: line.quantity,
+    }))
+
+    // Shipping fields are exactly what the Order model stores; addressLine2
+    // is dropped when it is blank so we do not persist an empty string.
+    const shippingAddress = Object.fromEntries(
+      Object.entries({
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        addressLine1: form.addressLine1.trim(),
+        addressLine2: form.addressLine2.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        zip: form.zip.trim(),
+      }).filter(([, value]) => value !== '')
+    )
+
+    // ---- Cash on delivery -------------------------------------------------
+    if (method === 'cod') {
+      try {
+        const res = await createMyOrder(payload, shippingAddress)
+        const orderId = res?.data?.order?._id
+
+        // The server empties the cart when it creates the order, so we only
+        // mirror that locally - no follow-up delete calls.
+        clearCart()
+        await refresh()
+        navigate(orderId ? `/buyer/orders?placed=${orderId}` : '/buyer/orders?placed=true', {
+          replace: true,
+        })
+      } catch (err) {
+        setFormError(err?.message || 'We could not place your order. Please try again.')
+        setPlacing(false)
+      }
+      return
+    }
+
+    // ---- Online payment (Razorpay) ---------------------------------------
     try {
-      const payload = lines.map((line) => ({
-        productId: line.product?._id,
-        quantity: line.quantity,
-      }))
+      const order = await payOnline({
+        items: payload,
+        shippingAddress,
+        orderId: pendingOrderId,
+        buyer: user,
+        onOrderCreated: setPendingOrderId,
+      })
 
-      // Shipping fields are exactly what the Order model stores; addressLine2
-      // is dropped when it is blank so we do not persist an empty string.
-      const shippingAddress = Object.fromEntries(
-        Object.entries({
-          name: form.name.trim(),
-          phone: form.phone.trim(),
-          addressLine1: form.addressLine1.trim(),
-          addressLine2: form.addressLine2.trim(),
-          city: form.city.trim(),
-          state: form.state.trim(),
-          zip: form.zip.trim(),
-        }).filter(([, value]) => value !== '')
-      )
-
-      const res = await createMyOrder(payload, shippingAddress)
-      const orderId = res?.data?.order?._id
-
-      // The server empties the cart when it creates the order, so we only
-      // mirror that locally - no follow-up delete calls.
+      // Payment verified by the server: the order is paid, so the cart goes.
       clearCart()
       await refresh()
-      navigate(orderId ? `/buyer/orders?placed=${orderId}` : '/buyer/orders?placed=true', {
-        replace: true,
-      })
+      navigate(
+        order?._id ? `/buyer/orders?placed=${order._id}&paid=1` : '/buyer/orders?placed=true&paid=1',
+        { replace: true }
+      )
     } catch (err) {
-      setFormError(err?.message || 'We could not place your order. Please try again.')
+      const interrupted = err?.code === 'PAYMENT_DISMISSED' || err?.code === 'PAYMENT_FAILED'
+      const failedOrderId = err?.orderId || pendingOrderId
+
+      if (interrupted && failedOrderId) {
+        // The order exists server-side (stock reserved, cart emptied there),
+        // it simply was not paid. Record that and let the next click reuse
+        // the same order instead of creating a second one.
+        setPendingOrderId(failedOrderId)
+        await reportPaymentFailure(failedOrderId)
+        setFormError(
+          'Your payment was not completed. Your order is saved - press "Retry payment" to try again, or cancel it from your orders page.'
+        )
+      } else if (interrupted) {
+        setFormError(err?.message || 'Your payment was not completed. Please try again.')
+      } else {
+        setFormError(err?.message || 'We could not start the payment. Please try again.')
+      }
       setPlacing(false)
     }
   }
@@ -165,7 +215,8 @@ export default function BuyerCheckout() {
         <div>
           <h1>Checkout</h1>
           <p className="checkout-sub">
-            {unitCount} {unitCount === 1 ? 'saree' : 'sarees'} · cash on delivery
+            {unitCount} {unitCount === 1 ? 'saree' : 'sarees'} ·{' '}
+            {method === 'razorpay' ? 'pay online' : 'cash on delivery'}
           </p>
         </div>
         <Link to="/buyer/cart" className="checkout-back">Back to cart</Link>
@@ -224,14 +275,59 @@ export default function BuyerCheckout() {
 
           <section className="checkout-card" aria-labelledby="payment-heading">
             <h2 id="payment-heading">Payment method</h2>
-            <div className="checkout-payment">
-              <span className="checkout-payment-tag">Only option</span>
-              <strong>Cash on delivery</strong>
-              <p>
-                Nothing is charged now. The amount is settled with the
-                manufacturer when the saree is delivered.
-              </p>
+
+            <div className="checkout-payment-options" role="radiogroup" aria-labelledby="payment-heading">
+              <label
+                className={`checkout-payment-option${method === 'cod' ? ' is-selected' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="cod"
+                  checked={method === 'cod'}
+                  // Once an online order exists it already holds this stock,
+                  // so switching to cash on delivery now would order the same
+                  // sarees twice. Complete or cancel that order first.
+                  disabled={!!pendingOrderId}
+                  onChange={() => setMethod('cod')}
+                />
+                <span className="checkout-payment-body">
+                  <strong>Cash on delivery</strong>
+                  <span>
+                    Nothing is charged now. The amount is settled with the
+                    manufacturer when the saree is delivered.
+                  </span>
+                </span>
+              </label>
+
+              <label
+                className={`checkout-payment-option${method === 'razorpay' ? ' is-selected' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value="razorpay"
+                  checked={method === 'razorpay'}
+                  onChange={() => setMethod('razorpay')}
+                />
+                <span className="checkout-payment-body">
+                  <strong>Pay online · {formatINR(total)}</strong>
+                  <span>
+                    Card, UPI or netbanking through Razorpay. Nothing is
+                    captured until the server has verified Razorpay&rsquo;s
+                    signature.
+                  </span>
+                </span>
+              </label>
             </div>
+
+            {method === 'razorpay' && pendingOrderId && (
+              <p className="checkout-payment-note" role="status">
+                Your earlier attempt was saved. Pressing the button below will
+                reopen the payment for that same order - no second order is
+                created.
+              </p>
+            )}
           </section>
         </div>
 
@@ -272,10 +368,14 @@ export default function BuyerCheckout() {
 
           <button type="submit" className="checkout-submit" disabled={placing}>
             {placing ? (
-              'Placing your order…'
+              method === 'razorpay' ? 'Opening payment…' : 'Placing your order…'
             ) : (
               <>
-                Place order
+                {method === 'razorpay'
+                  ? pendingOrderId
+                    ? `Retry payment ${formatINR(total)}`
+                    : `Pay ${formatINR(total)}`
+                  : 'Place order'}
                 <IconArrowRight size={18} />
               </>
             )}

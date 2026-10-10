@@ -91,6 +91,10 @@ export default function SellerRegister() {
         description: form.description.trim() || undefined,
       })
       setSuccess(true)
+      // Never keep the typed credentials in component state after a success.
+      setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
+      setShowPassword(false)
+      setShowConfirm(false)
     } catch (err) {
       setFormError(err.message)
       setSubmitting(false)

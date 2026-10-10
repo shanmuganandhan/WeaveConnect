@@ -441,6 +441,71 @@
   color: #8b6f47;
 }
 
+/* ---------- forgot password / email OTP ---------- */
+
+/* Three small labels showing which step of the reset we are on. */
+.otp-steps {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.otp-steps li {
+  flex: 1;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9c9184;
+  background: #f6f1e8;
+  border: 1px solid #e5dccf;
+  border-radius: 999px;
+  padding: 0.4rem 0.25rem;
+}
+
+.otp-steps li.active {
+  color: #1a1612;
+  background: #fff;
+  border-color: #d4af37;
+}
+
+/* The OTP box: wide letter spacing so six digits are easy to read. */
+.otp-input {
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+/* "Resend OTP" / "Change email" act on <button>, not <a>. */
+button.forgot-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.forgot-link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.forgot-link:disabled:hover {
+  text-decoration: none;
+}
+
+/* Password rule reminder under the new-password field. */
+.auth-hint {
+  margin: -0.35rem 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #8a7a67;
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 940px) {
   .auth-shell {

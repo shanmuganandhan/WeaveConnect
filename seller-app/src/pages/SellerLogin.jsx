@@ -139,6 +139,9 @@ export default function SellerLogin() {
                 <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
                 Remember me
               </label>
+              <Link to="/forgot-password" className="forgot-link">
+                Forgot password?
+              </Link>
             </div>
 
             <button type="submit" className="auth-btn" disabled={submitting}>

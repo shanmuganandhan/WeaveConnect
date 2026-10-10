@@ -9,8 +9,18 @@ const registerValidation = [
     .trim(),
   body('email').isEmail().withMessage('Please provide a valid email').normalizeEmail(),
   body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters'),
+    .isLength({ min: 6, max: 128 })
+    .withMessage('Password must be at least 6 characters and at most 128 characters'),
+  body('confirmPassword')
+    .optional()
+    .isString()
+    .withMessage('Confirm password must be a string')
+    .custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
   body('phone').optional().isString().trim(),
   body('role')
     .optional()
@@ -31,7 +41,55 @@ const loginValidation = [
   body('password').notEmpty().withMessage('Password is required'),
 ];
 
+const forgotPasswordValidation = [
+  body('email').isEmail().withMessage('Please provide a valid email').normalizeEmail(),
+];
+
+const verifyOtpValidation = [
+  body('email').isEmail().withMessage('Please provide a valid email').normalizeEmail(),
+  body('otp')
+    .isString()
+    .withMessage('OTP must be a string')
+    .trim()
+    .isLength({ min: 6, max: 6 })
+    .withMessage('OTP must be 6 digits')
+    .isNumeric()
+    .withMessage('OTP must contain only digits'),
+];
+
+const resetPasswordValidation = [
+  body('resetToken')
+    .isString()
+    .withMessage('Reset token is required')
+    .trim()
+    .notEmpty()
+    .withMessage('Reset token is required'),
+  body('newPassword')
+    .isString()
+    .withMessage('New password must be a string')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long'),
+  body('confirmPassword')
+    .isString()
+    .withMessage('Confirm password must be a string')
+    .isLength({ min: 8 })
+    .withMessage('Password must be at least 8 characters long'),
+];
+
+const refreshValidation = [
+  body('refreshToken')
+    .isString()
+    .withMessage('Refresh token is required')
+    .trim()
+    .notEmpty()
+    .withMessage('Refresh token is required'),
+];
+
 module.exports = {
   registerValidation,
   loginValidation,
+  forgotPasswordValidation,
+  verifyOtpValidation,
+  resetPasswordValidation,
+  refreshValidation,
 };

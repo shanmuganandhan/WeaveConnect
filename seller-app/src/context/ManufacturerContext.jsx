@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import * as manufacturerApi from '../api/manufacturerApi'
 import { useToast } from '../hooks/useToast'
+import { titleCase } from '../pages/manufacturer/manufacturerUtils'
 
 const ManufacturerContext = createContext(null)
 
@@ -61,7 +62,7 @@ export function ManufacturerProvider({ children }) {
   const updateOrderStatus = useCallback(async (id, status) => {
     await manufacturerApi.updateMyOrderStatus(id, status)
     setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, status } : o)))
-    showToast(`Order marked as ${status}.`)
+    showToast(`Order marked as ${titleCase(status)}.`)
   }, [showToast])
 
   const updateProfile = useCallback(async (payload) => {

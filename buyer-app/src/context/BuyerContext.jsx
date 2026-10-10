@@ -97,6 +97,23 @@ export function BuyerProvider({ children }) {
     showToast('Profile updated successfully!')
   }, [showToast])
 
+  // Cancels one of this buyer's own orders. The response carries the saved
+  // order, so the list updates instantly instead of waiting for a refetch -
+  // and if the server rejects it (already cancelled, now shipped, ...) the
+  // list is left untouched and the reason is shown as an error toast.
+  const cancelOrder = useCallback(
+    async (orderId) => {
+      const res = await buyerApi.cancelMyOrder(orderId)
+      const updated = res?.data?.order
+      if (updated) {
+        setOrders((prev) => prev.map((o) => (o._id === updated._id ? { ...o, ...updated } : o)))
+      }
+      showToast(res?.message || 'Order cancelled successfully')
+      return res?.data
+    },
+    [showToast]
+  )
+
   const value = useMemo(
     () => ({
       orders,
@@ -121,10 +138,11 @@ export function BuyerProvider({ children }) {
       toggleWishlist,
       removeWishlistItem: removeWishlistItemWithToast,
       updateProfile,
+      cancelOrder,
     }),
-    [orders, wishlist, profile, cart, itemCount, totalQuantity, subtotal, cartLoading, cartError,
+    [orders, wishlist, profile, cart, itemCount, totalQuantity, cartLoading, cartError,
       loading, error, toast, refresh, refreshCart, addToCart, updateCartItem, removeCartItem,
-      clearCart, toggleWishlist, removeWishlistItemWithToast, updateProfile]
+      clearCart, toggleWishlist, removeWishlistItemWithToast, updateProfile, cancelOrder]
   )
 
   return <BuyerContext.Provider value={value}>{children}</BuyerContext.Provider>

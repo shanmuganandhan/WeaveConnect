@@ -665,3 +665,11 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Password rule reminder under the new-password field. */
+.auth-hint {
+  margin: -0.35rem 0 1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #8a7a67;
+}

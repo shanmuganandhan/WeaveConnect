@@ -67,13 +67,38 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['cod'],
+      enum: ['cod', 'razorpay'],
       default: 'cod',
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'failed'],
+      enum: ['pending', 'paid', 'failed', 'refunded', 'partially_refunded'],
       default: 'pending',
+    },
+
+    // --- Razorpay (only populated when paymentMethod is 'razorpay') ---
+    // The signature is stored only as a record of what was verified; the
+    // secret key itself never touches the database or the frontend.
+    razorpayOrderId: {
+      type: String,
+      default: null,
+    },
+    razorpayPaymentId: {
+      type: String,
+      default: null,
+    },
+    razorpaySignature: {
+      type: String,
+      default: null,
+    },
+    refundStatus: {
+      type: String,
+      enum: ['not_requested', 'pending', 'processed', 'failed'],
+      default: 'not_requested',
+    },
+    refundedAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

@@ -217,6 +217,9 @@ function Login() {
                 />
                 Remember me
               </label>
+              <Link to="/forgot-password" className="forgot-link">
+                Forgot password?
+              </Link>
             </div>
 
             <button type="submit" className="auth-btn" disabled={submitting}>

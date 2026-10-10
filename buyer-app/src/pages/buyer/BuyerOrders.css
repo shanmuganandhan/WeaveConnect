@@ -280,6 +280,133 @@
   transform: rotate(180deg);
 }
 
+/* ---------- cancel order ---------- */
+.order-cancel-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e0b4ac;
+  background: #fdf5f3;
+  color: #a4442f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.order-cancel-btn:hover {
+  background: #f9e7e3;
+  border-color: #d68c7e;
+}
+
+/* ---------- pending online payment ---------- */
+.order-pay-btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #c9a227;
+  background: linear-gradient(135deg, #c9a227, #b8863a);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+}
+
+.order-pay-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.order-pay-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.order-pay-error {
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 8px;
+  background: #fdf5f3;
+  border: 1px solid #e0b4ac;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #a4442f;
+}
+
+/* Confirmation strip shown before a cancellation is sent to the server. */
+.order-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 1.15rem 1.15rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #ecd7a8;
+  border-radius: 10px;
+  background: #fdf8ec;
+  animation: orderReveal 0.2s ease;
+}
+
+.order-confirm-text strong {
+  display: block;
+  font-size: 0.92rem;
+  color: #1a1612;
+}
+
+.order-confirm-text p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #6b5c4c;
+}
+
+.order-confirm-error {
+  color: #a4442f;
+  font-weight: 600;
+}
+
+.order-confirm-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.order-confirm-keep,
+.order-confirm-go {
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.order-confirm-keep {
+  border: 1px solid #e2d6c2;
+  background: #fff;
+  color: #6b5c4c;
+}
+
+.order-confirm-keep:hover:not(:disabled) {
+  border-color: #c9a227;
+  color: #8b6f47;
+}
+
+.order-confirm-go {
+  border: 0;
+  background: #d64545;
+  color: #fff;
+}
+
+.order-confirm-go:hover:not(:disabled) {
+  background: #bf3a3a;
+}
+
+.order-confirm-keep:disabled,
+.order-confirm-go:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* ---------- expanded details ---------- */
 .order-details {
   padding: 0 1.15rem 1.35rem;

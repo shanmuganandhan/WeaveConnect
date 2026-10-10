@@ -17,7 +17,29 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors());
+
+// CORS: when CORS_ORIGIN is set (comma-separated list of allowed origins,
+// e.g. "https://weaveconnect.vercel.app"), only those origins may call the
+// API. When it is not set, behaviour is unchanged from the existing
+// deployment (any origin), so nothing breaks before the variable is added.
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors(
+    allowedOrigins.length
+      ? {
+          origin: (origin, cb) => {
+            // Server-to-server and same-origin requests have no Origin header.
+            if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+            cb(new Error('Not allowed by CORS'));
+          },
+        }
+      : {}
+  )
+);
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(mongoSanitize);

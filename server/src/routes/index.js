@@ -12,12 +12,14 @@ const reviewRoutes = require('./reviewRoutes');
 const storeRoutes = require('./storeRoutes');
 const profileRoutes = require('./profileRoutes');
 const uploadRoutes = require('./uploadRoutes');
+const paymentRoutes = require('./paymentRoutes');
 
 router.use(healthRoutes);
 router.use('/auth', authRoutes);
 router.use('/products', productRoutes);
 router.use('/cart', cartRoutes);
 router.use('/orders', orderRoutes);
+router.use('/payment', paymentRoutes);
 router.use('/admin', adminRoutes);
 router.use('/manufacturer', manufacturerRoutes);
 router.use('/wishlist', wishlistRoutes);

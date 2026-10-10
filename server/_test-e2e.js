@@ -472,6 +472,95 @@ async function runTests({ smtp } = {}) {
   r = await api('GET', `/api/stores/${man1Reg.user.id}`);
   check('store rating resets to 0 after deleting the review', r.json?.data?.store?.averageRating === 0);
 
+  // ---------- FORGOT PASSWORD (EMAIL OTP) ----------
+  // The OTP email is captured by the fake SMTP server the runner starts, so
+  // this exercises the real Nodemailer path end to end without a real mailbox.
+  const otpEmail = `otp${ts}@test.com`;
+  const otpReg = await register('Otp Buyer', otpEmail, 'buyer');
+
+  r = await api('POST', '/api/auth/forgot-password', { body: { email: `ghost${ts}@test.com` } });
+  check('forgot password for unknown address -> 200', r.status === 200);
+  check('unknown address gets the same generic message', r.json?.message === 'If an account exists for that email, a 6-digit OTP has been sent.');
+
+  r = await api('POST', '/api/auth/forgot-password', { body: { email: otpEmail } });
+  check('forgot password -> 200', r.status === 200);
+  check('forgot password response does not leak the account', r.json?.message === 'If an account exists for that email, a 6-digit OTP has been sent.');
+
+  const otp = smtp ? smtp.getLastOtp() : null;
+  check('OTP email arrived with a 6-digit code', /^\d{6}$/.test(otp || ''));
+
+  r = await api('POST', '/api/auth/forgot-password', { body: { email: otpEmail } });
+  check('immediate resend is blocked by the cooldown', r.status === 429);
+
+  const wrongOtp = String((Number(otp) + 1) % 1000000).padStart(6, '0');
+
+  r = await api('POST', '/api/auth/verify-otp', { body: { email: `ghost${ts}@test.com`, otp } });
+  check('verify OTP for unknown address -> 400', r.status === 400);
+
+  r = await api('POST', '/api/auth/verify-otp', { body: { email: otpEmail, otp: wrongOtp } });
+  check('wrong OTP -> 400 with attempts remaining', r.status === 400 && /attempt/i.test(r.json?.message || ''));
+
+  r = await api('POST', '/api/auth/verify-otp', { body: { email: otpEmail, otp } });
+  const resetToken = r.json?.data?.resetToken;
+  check('correct OTP -> 200 with a reset token', r.status === 200 && typeof resetToken === 'string' && resetToken.length > 20);
+
+  r = await api('POST', '/api/auth/verify-otp', { body: { email: otpEmail, otp } });
+  check('OTP is single-use', r.status === 400);
+
+  r = await api('POST', '/api/auth/reset-password', { body: { resetToken: 'not-a-real-token', newPassword: 'BrandNewPass1', confirmPassword: 'BrandNewPass1' } });
+  check('reset password with a bogus token -> 400', r.status === 400);
+
+  r = await api('POST', '/api/auth/reset-password', { body: { resetToken, newPassword: 'BrandNewPass1', confirmPassword: 'DifferentPass1' } });
+  check('reset password with mismatched passwords -> 400', r.status === 400);
+
+  r = await api('POST', '/api/auth/reset-password', { body: { resetToken, newPassword: 'BrandNewPass1', confirmPassword: 'BrandNewPass1' } });
+  check('reset password -> 200', r.status === 200 && /sign in again/i.test(r.json?.message || ''));
+
+  r = await api('POST', '/api/auth/reset-password', { body: { resetToken, newPassword: 'BrandNewPass1', confirmPassword: 'BrandNewPass1' } });
+  check('reset token cannot be replayed', r.status === 400);
+
+  r = await api('POST', '/api/auth/login', { body: { email: otpEmail, password: 'secret123' } });
+  check('old password no longer works', r.status === 401);
+
+  const newPasswordLogin = await api('POST', '/api/auth/login', { body: { email: otpEmail, password: 'BrandNewPass1' } });
+  check('new password signs in', newPasswordLogin.status === 200 && !!newPasswordLogin.json?.data?.token);
+
+  r = await api('GET', '/api/profile', { token: otpReg.token });
+  check('password reset invalidates earlier sessions', r.status === 401);
+
+  // ---------- PAYMENT (gateway intentionally unconfigured) ----------
+  // RAZORPAY_KEY_ID/SECRET are blanked by the test runner, so the payment API
+  // must refuse cleanly instead of half-charging anyone.
+  r = await api('POST', '/api/payment/create-order');
+  check('create payment order without token -> 401', r.status === 401);
+
+  r = await api('POST', '/api/payment/create-order', { token: man1 });
+  check('create payment order as manufacturer -> 403', r.status === 403);
+
+  r = await api('POST', '/api/payment/create-order', { token: buyer, body: { items: [] } });
+  check('create payment order with no items -> 400', r.status === 400);
+
+  r = await api('POST', '/api/payment/create-order', { token: buyer, body: { items: [{ productId: a, quantity: 1 }] } });
+  check('create payment order without a gateway -> 503', r.status === 503);
+  check('503 points the buyer at cash on delivery', /cash on delivery/i.test(r.json?.message || ''));
+
+  r = await api('POST', '/api/payment/verify', {
+    token: buyer,
+    body: {
+      orderId: mongoose.Types.ObjectId.createFromTime(1),
+      razorpayOrderId: 'order_TEST',
+      razorpayPaymentId: 'pay_TEST',
+      razorpaySignature: 'sig_TEST',
+    },
+  });
+  check('verify payment without a gateway -> 503', r.status === 503);
+
+  r = await api('POST', '/api/payment/verify', { token: buyer, body: { orderId: 'notanid' } });
+  check('verify payment with a malformed body -> 400', r.status === 400);
+
+  r = await api('POST', '/api/payment/failure');
+  check('report payment failure without token -> 401', r.status === 401);
+
   // ---------- cleanup ----------
   await mongoose.connect(TEST_DB);
   const db = mongoose.connection.db;

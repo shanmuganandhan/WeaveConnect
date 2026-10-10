@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useBuyer } from '../../context/BuyerContext'
+import { useAuth } from '../../context/AuthContext'
+import { payOnline, reportPaymentFailure } from '../../utils/razorpay'
 import { formatINR } from '../../utils/format'
 import { formatDate, orderId } from '../../utils/date'
 import { productImage, productLink } from '../../utils/product'
@@ -31,11 +33,75 @@ const STATUS_HINTS = {
   cancelled: 'This order was cancelled.',
 }
 
-function OrderRow({ order, expanded, onToggle, highlight }) {
+// The backend enforces exactly this list on every cancel request; the button
+// below merely mirrors it so shoppers are not sent into a guaranteed failure.
+const CANCELLABLE_STATUSES = ['pending', 'accepted']
+
+const PAYMENT_METHOD_LABELS = {
+  razorpay: 'Online payment (Razorpay)',
+  cod: 'Cash on delivery',
+}
+
+const REFUND_LABELS = {
+  not_requested: 'Not requested',
+  pending: 'Refund pending',
+  processed: 'Refund processed',
+  failed: 'Refund failed',
+}
+
+function OrderRow({ order, expanded, onToggle, highlight, onCancel, onPay }) {
   const items = Array.isArray(order.items) ? order.items : []
   const firstProduct = items[0]?.product
   const extra = items.length - 1
   const status = order.status || 'pending'
+
+  const [confirming, setConfirming] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+  const [paying, setPaying] = useState(false)
+  const [payError, setPayError] = useState('')
+
+  const canCancel = CANCELLABLE_STATUSES.includes(status)
+  // Online orders that were created but never completed: the amount is still
+  // owed, so the shopper can finish the payment straight from here.
+  const canPay =
+    order.paymentMethod === 'razorpay' &&
+    order.paymentStatus !== 'paid' &&
+    CANCELLABLE_STATUSES.includes(status)
+
+  const handlePay = async () => {
+    if (paying) return
+    setPayError('')
+    setPaying(true)
+    try {
+      await onPay(order._id)
+    } catch (err) {
+      if (err?.code === 'PAYMENT_DISMISSED') {
+        await reportPaymentFailure(order._id)
+        setPayError('Payment was closed. Nothing was charged - you can try again.')
+      } else {
+        setPayError(err?.message || 'We could not complete the payment. Please try again.')
+      }
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const handleConfirmCancel = async () => {
+    if (cancelling) return
+    setCancelError('')
+    setCancelling(true)
+    try {
+      await onCancel(order._id)
+      setConfirming(false)
+    } catch (err) {
+      // Status may have moved on (shipped, already cancelled, ...) since the
+      // page loaded - the server's reason is shown and nothing changes.
+      setCancelError(err?.message || 'We could not cancel this order. Please refresh.')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   return (
     <article className={`order-row${highlight ? ' order-row-highlight' : ''}`}>
@@ -70,8 +136,76 @@ function OrderRow({ order, expanded, onToggle, highlight }) {
               <IconChevronDown size={16} />
             </span>
           </button>
+          {canPay && (
+            <button
+              type="button"
+              className="order-pay-btn"
+              onClick={handlePay}
+              disabled={paying || confirming}
+            >
+              {paying ? 'Opening payment…' : `Pay ${formatINR(order.totalAmount)}`}
+            </button>
+          )}
+          {canCancel && !confirming && (
+            <button
+              type="button"
+              className="order-cancel-btn"
+              onClick={() => {
+                setCancelError('')
+                setConfirming(true)
+              }}
+            >
+              Cancel Order
+            </button>
+          )}
         </div>
       </div>
+
+      {payError && (
+        <p className="order-pay-error" role="alert">
+          {payError}
+        </p>
+      )}
+
+      {confirming && (
+        <div
+          className="order-confirm"
+          role="alertdialog"
+          aria-labelledby={`cancel-title-${order._id}`}
+          aria-describedby={`cancel-text-${order._id}`}
+        >
+          <div className="order-confirm-text">
+            <strong id={`cancel-title-${order._id}`}>Cancel this order?</strong>
+            <p id={`cancel-text-${order._id}`}>
+              Are you sure you want to cancel this order? Returned stock goes back
+              to the manufacturer's listing straight away.
+            </p>
+            {cancelError && (
+              <p className="order-confirm-error" role="alert">
+                {cancelError}
+              </p>
+            )}
+          </div>
+          <div className="order-confirm-actions">
+            <button
+              type="button"
+              className="order-confirm-keep"
+              onClick={() => setConfirming(false)}
+              disabled={cancelling}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="order-confirm-go"
+              onClick={handleConfirmCancel}
+              disabled={cancelling}
+            >
+              {cancelling ? 'Cancelling…' : 'Confirm Cancellation'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {expanded && (
         <div className="order-details" id={`order-details-${order._id}`}>
@@ -120,12 +254,20 @@ function OrderRow({ order, expanded, onToggle, highlight }) {
               <dl className="order-payment">
                 <div>
                   <dt>Method</dt>
-                  <dd>Cash on delivery</dd>
+                  <dd>{PAYMENT_METHOD_LABELS[order.paymentMethod] || 'Cash on delivery'}</dd>
                 </div>
                 <div>
                   <dt>Payment status</dt>
                   <dd className="order-payment-status">{order.paymentStatus || 'pending'}</dd>
                 </div>
+                {order.refundStatus && order.refundStatus !== 'not_requested' && (
+                  <div>
+                    <dt>Refund</dt>
+                    <dd className="order-payment-status">
+                      {REFUND_LABELS[order.refundStatus] || order.refundStatus}
+                    </dd>
+                  </div>
+                )}
                 <div>
                   <dt>Order total</dt>
                   <dd>{formatINR(order.totalAmount)}</dd>
@@ -140,13 +282,23 @@ function OrderRow({ order, expanded, onToggle, highlight }) {
 }
 
 export default function BuyerOrders() {
-  const { orders, loading, error, refresh } = useBuyer()
+  const { orders, loading, error, refresh, cancelOrder } = useBuyer()
+  const { user } = useAuth()
   const [params] = useSearchParams()
   const [filter, setFilter] = useState('All')
   const [expandedId, setExpandedId] = useState(null)
 
   const placed = params.get('placed')
+  const paid = params.get('paid')
   const list = Array.isArray(orders) ? orders : []
+
+  // Finishes an online payment for an order that already exists. The server
+  // re-creates (or reuses) its Razorpay order and verifies the signature.
+  const handlePay = async (id) => {
+    const order = await payOnline({ orderId: id, buyer: user })
+    await refresh()
+    return order
+  }
 
   const filtered = useMemo(() => {
     if (filter === 'All') return list
@@ -184,11 +336,23 @@ export default function BuyerOrders() {
         <div className="order-placed-banner" role="status">
           <IconPackage size={20} />
           <div>
-            <strong>Order placed.</strong>
-            {placed !== 'true' && (
-              <span> Your order reference is {orderId(placed)}. </span>
+            {paid ? (
+              <>
+                <strong>Payment received - your order is confirmed.</strong>
+                {placed !== 'true' && (
+                  <span> Your order reference is {orderId(placed)}. </span>
+                )}
+                The manufacturer has been notified and will accept it shortly.
+              </>
+            ) : (
+              <>
+                <strong>Order placed.</strong>
+                {placed !== 'true' && (
+                  <span> Your order reference is {orderId(placed)}. </span>
+                )}
+                It is now pending until the manufacturer accepts it.
+              </>
             )}
-            It is now pending until the manufacturer accepts it.
           </div>
         </div>
       )}
@@ -244,6 +408,8 @@ export default function BuyerOrders() {
                   highlight={placed && order._id === placed}
                   expanded={expandedId === order._id}
                   onToggle={() => setExpandedId((prev) => (prev === order._id ? null : order._id))}
+                  onCancel={cancelOrder}
+                  onPay={handlePay}
                 />
               ))}
             </div>

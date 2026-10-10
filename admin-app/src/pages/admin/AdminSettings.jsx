@@ -66,8 +66,8 @@ export default function AdminSettings() {
     load()
   }, [load])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/', { replace: true })
   }
 

@@ -23,8 +23,8 @@ export function AuthProvider({ children }) {
     setInitializing(false)
   }, [])
 
-  const handleAuth = useCallback(({ user: u, token: t }, persist) => {
-    authStorage.set({ token: t, user: u, persist })
+  const handleAuth = useCallback(({ user: u, token: t, refreshToken: rt }, persist) => {
+    authStorage.set({ token: t, refreshToken: rt, user: u, persist })
     setToken(t)
     setUser(u)
   }, [])
@@ -54,14 +54,34 @@ export function AuthProvider({ children }) {
   },
   [handleAuth]
 )
-  const logout = useCallback(() => {
+  // Clears local state first so the UI reacts immediately, then tells the
+  // server to revoke this session. A network failure during that call must
+  // never leave the browser signed in.
+  const logout = useCallback(async () => {
+    const { refreshToken } = authStorage.get()
     authStorage.clear()
     setToken(null)
     setUser(null)
+    try {
+      await authApi.logout({ refreshToken })
+    } catch {
+      // Session is already unusable locally; nothing else to do.
+    }
+  }, [])
+
+  const logoutAll = useCallback(async () => {
+    authStorage.clear()
+    setToken(null)
+    setUser(null)
+    try {
+      await authApi.logoutAll()
+    } catch {
+      // Same as above: local sign-out always wins.
+    }
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, initializing, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, initializing, login, register, logout, logoutAll }}>
       {children}
     </AuthContext.Provider>
   )

@@ -34,20 +34,14 @@ const getTransporter = () => {
 
 // Builds the plain-text OTP email body.
 // Keeping the template in one place makes it easy to change later.
-const buildOtpEmail = (otp) => `Hello,
+const buildOtpEmail = (otp) => `WEAVECONNECT
+Password Reset OTP
 
-We received a request to reset your WeaveConnect password.
+Your OTP is: ${otp}
 
-Your OTP is:
+This OTP expires in 10 minutes.
 
-${otp}
-
-This OTP is valid for 10 minutes.
-
-If you did not request a password reset, you can ignore this email.
-
-Regards,
-WeaveConnect Team`;
+If you did not request this password reset, ignore this email.`;
 
 // Sends the OTP email to the user.
 // `to` is the address the user typed in, and `from` is EMAIL_FROM from the .env file.
@@ -57,12 +51,12 @@ const sendOtpEmail = async (to, otp) => {
   const info = await mail.sendMail({
     from: config.emailFrom || config.emailUser,
     to,
-    subject: 'WeaveConnect Password Reset OTP',
+    subject: 'WEAVECONNECT Password Reset OTP',
     text: buildOtpEmail(otp),
   });
 
   // NOTE: we deliberately never log the OTP or the email password, so
-// secrets can never leak into the terminal or a log file.
+  // secrets can never leak into the terminal or a log file.
   console.log('[email] OTP email sent, message id:', info.messageId);
   return info;
 };

@@ -1,5 +1,5 @@
 const { verifyToken } = require('../utils/jwt');
-const { User } = require('../models');
+const { User, Session } = require('../models');
 const { error } = require('../utils/apiResponse');
 const approvalStatusFor = require('../utils/approvalStatus');
 
@@ -17,12 +17,49 @@ const authenticate = async (req, res, next) => {
     try {
       decoded = verifyToken(token);
     } catch (err) {
+      // An expired *access* token gets a machine-readable code so the
+      // frontend can silently refresh instead of logging the user out.
+      // Anything else (tampered, wrong type, garbage) is a hard 401.
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          success: false,
+          message: 'Token expired',
+          code: 'TOKEN_EXPIRED',
+        });
+      }
       return error(res, 401, 'Invalid or expired token');
+    }
+
+    // Refresh tokens must never be usable as access tokens.
+    if (decoded.typ && decoded.typ !== 'access') {
+      return error(res, 401, 'Invalid token');
     }
 
     const user = await User.findById(decoded.userId);
     if (!user) {
       return error(res, 401, 'User not found');
+    }
+
+    // Token issued before a logout-all / password reset is dead, even if it
+    // has not reached its own expiry yet. Tokens without `sv` are legacy
+    // tokens issued before this field existed; they stay valid until expiry.
+    if (decoded.sv !== undefined && decoded.sv !== user.sessionVersion) {
+      return error(res, 401, 'Session expired. Please sign in again.');
+    }
+
+    // New-style tokens are bound to a server-side session record. If that
+    // session was revoked (logout on this device, or logout everywhere),
+    // the token stops working immediately.
+    if (decoded.sid) {
+      const session = await Session.findOne({
+        _id: decoded.sid,
+        user: user._id,
+        revokedAt: null,
+        expiresAt: { $gt: new Date() },
+      }).select('_id');
+      if (!session) {
+        return error(res, 401, 'Session expired. Please sign in again.');
+      }
     }
 
     if (user.isBlocked) {
@@ -42,6 +79,7 @@ const authenticate = async (req, res, next) => {
     }
 
     req.user = user;
+    req.sessionId = decoded.sid || null;
     next();
   } catch (err) {
     next(err);

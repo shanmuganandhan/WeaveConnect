@@ -30,8 +30,8 @@ export default function AdminLayout() {
 
   const activeLabel = SIDEBAR_LABELS[location.pathname] || 'Dashboard'
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/', { replace: true })
   }
 

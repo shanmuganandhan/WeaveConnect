@@ -240,7 +240,7 @@ export default function BuyerCart() {
             </div>
             <div className="cart-summary-row">
               <span>Payment method</span>
-              <strong>Cash on delivery</strong>
+              <strong>Chosen at checkout</strong>
             </div>
           </div>
 
