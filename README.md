@@ -77,6 +77,7 @@ Backend variables live in `server/.env` (copy it from `server/.env.example`). `s
 | `EMAIL_FROM`            | Sender address for OTP emails      | *(required for forgot password)* |
 | `RAZORPAY_KEY_ID`       | Razorpay test-mode key id          | *(only for online checkout)*     |
 | `RAZORPAY_KEY_SECRET`   | Razorpay test-mode key secret      | *(only for online checkout)*     |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay webhook signing secret  | *(only needed for the webhook)*  |
 | `CORS_ORIGIN`           | Comma-separated allowed origins    | *(empty = any origin)*           |
 
 Optional rate-limit overrides: `AUTH_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_MAX`, `OTP_RATE_LIMIT_MAX`, `OTP_VERIFY_RATE_LIMIT_MAX`, `PAYMENT_RATE_LIMIT_MAX`.
@@ -89,6 +90,7 @@ Notes:
 - The Cloudinary values are only used by the image-upload endpoint. The demo data uses local images that already ship inside `buyer-app/public/images`, so a Cloudinary account is **not** needed for the demo.
 - The email values are only used by the forgot-password OTP flow. With an App Password (not your normal Google password) the reset email works on a real Gmail address.
 - `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are only needed for "Pay online". Without them the API answers `503` for the payment endpoints and cash on delivery remains the only usable option. The secret stays on the server.
+- `RAZORPAY_WEBHOOK_SECRET` is the separate signing secret shown when you add the webhook in the Razorpay dashboard (point it at `POST https://<your-api-host>/api/payment/webhook`, events `payment.captured`, `order.paid`, `payment.failed`). Without it the webhook endpoint answers `503`; the rest of the app is unaffected.
 - The Razorpay checkout script itself is loaded from Razorpay's CDN in the browser; only the public key id is ever sent to the client.
 - No secret is ever sent to the browser. The frontends only ever receive a JWT.
 
@@ -187,13 +189,14 @@ Two methods, chosen on the checkout screen:
 | Cash on delivery | `POST /api/orders` with `paymentMethod: 'cod'` | Nothing is charged; the manufacturer is paid on delivery |
 | Online (Razorpay) | `POST /api/payment/create-order` | Card / UPI / netbanking; the order is marked `paid` only after the server verifies Razorpay's signature |
 
-`/api/payment` — buyer only, rate-limited:
+`/api/payment` — buyer only and rate-limited, except the public webhook:
 
 | Method | Endpoint        | Description |
 |--------|-----------------|-------------|
 | POST   | `/create-order` | `{ items, shippingAddress }` for a fresh checkout, or `{ orderId }` to retry an unpaid order. Returns `keyId`, `amount` (paise), `razorpayOrderId` and the order |
 | POST   | `/verify`       | `{ orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature }` — the HMAC signature is recomputed with the secret before the order is marked `paid` |
 | POST   | `/failure`      | `{ orderId }` — records a dismissed or declined attempt so the order is retryable and never claims success |
+| POST   | `/webhook`      | Razorpay server-to-server callback (no buyer session). Verifies the `X-Razorpay-Signature` HMAC over the raw body, then idempotently marks the order `paid` (`payment.captured` / `order.paid`) or `failed` (`payment.failed`) |
 
 How the online flow stays safe:
 
@@ -201,9 +204,10 @@ How the online flow stays safe:
 - The Razorpay order is created first, then stock is reserved and the saved cart is emptied — so a gateway failure cannot leave reserved stock the buyer never ordered, and a refresh cannot bring already-ordered items back. Retrying a payment reuses the same order instead of reserving stock twice.
 - The browser's "payment succeeded" claim is never trusted: verification recomputes `HMAC_SHA256(order_id|payment_id)` with the server-side secret and compares it in constant time. A forged response simply gets `400`.
 - Verification is idempotent: submitting the same verified payment twice returns success instead of double-processing.
+- The webhook is the authoritative confirmation when the buyer closes the tab before the browser calls `/verify`. It is signed with the webhook secret (a different secret from the API key), verified over the exact request bytes, and is idempotent — a replayed event never double-processes, and a late `payment.failed` can never downgrade an order already marked `paid`.
 - Cancelling a paid Razorpay order starts a refund (`refundStatus`: `not_requested` → `pending` → `processed` / `failed`); "processed" is only written after Razorpay confirms it.
 
-If `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not set, the payment endpoints answer `503` and cash on delivery remains the only usable option.
+If `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are not set, the payment endpoints answer `503` and cash on delivery remains the only usable option. The webhook separately answers `503` until `RAZORPAY_WEBHOOK_SECRET` is set.
 
 ### Wishlist — `/api/wishlist` (buyer only)
 
@@ -309,7 +313,7 @@ How the seed behaves:
 
 ## Testing
 
-The backend has a self-contained end-to-end suite (156 checks) covering registration, login, role protection, seller approval, products, search, cart, stock limits, checkout, shipping addresses, order visibility, reviews and analytics, plus the forgot-password OTP flow (the code is read back out of the fake SMTP inbox, then a wrong OTP, a reused OTP, a reused reset token, the resend cooldown and unknown addresses are all checked) and the payment guards (`401`/`403`/`400` and the unconfigured-gateway `503`).
+The backend has a self-contained end-to-end suite (172 checks) covering registration, login, role protection, seller approval, products, search, cart, stock limits, checkout, shipping addresses, order visibility, reviews and analytics, plus the forgot-password OTP flow (the code is read back out of the fake SMTP inbox, then a wrong OTP, a reused OTP, a reused reset token, the resend cooldown and unknown addresses are all checked) and the payment guards (`401`/`403`/`400` and the unconfigured-gateway `503`). It also signs and posts real webhook calls to confirm a missing or forged signature is rejected, a valid `payment.captured` / `order.paid` marks the order paid, `payment.failed` marks an unpaid order failed but never downgrades a paid one, replays are idempotent, and an unknown order is acknowledged.
 
 ```bash
 cd server

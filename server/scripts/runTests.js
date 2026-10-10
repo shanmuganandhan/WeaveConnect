@@ -61,6 +61,9 @@ async function resetTestDb() {
       // and must never talk to the live API.
       RAZORPAY_KEY_ID: '',
       RAZORPAY_KEY_SECRET: '',
+      // A throwaway webhook secret so the suite can sign its own webhook
+      // calls. Independent of the (blanked) API keys above.
+      RAZORPAY_WEBHOOK_SECRET: 'test_webhook_secret',
     },
     stdio: 'inherit',
   });

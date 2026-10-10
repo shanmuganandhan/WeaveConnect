@@ -227,4 +227,71 @@ const reportPaymentFailure = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { createPaymentOrder, verifyPayment, reportPaymentFailure };
+// ---------------------------------------------------------------------------
+// POST /api/payment/webhook      (Razorpay -> server, no user session)
+//
+// Razorpay calls this on payment.captured / order.paid / payment.failed. It is
+// the authoritative confirmation: a buyer can close the tab before the browser
+// ever calls /verify, but the webhook still arrives. Every field we trust here
+// is signed with the webhook secret over the exact request bytes.
+//
+// Rules:
+//   - Missing/!configured secret  -> 503 (Razorpay retries; never trust caller)
+//   - Missing/bad signature       -> 400, and no state is touched
+//   - Unknown order id            -> 200 (ack; nothing to update)
+//   - Replayed event for a paid order -> 200 (idempotent, no second update)
+// ---------------------------------------------------------------------------
+const extractWebhookRefs = (payload) => {
+  const payment = payload?.payment?.entity || null;
+  const order = payload?.order?.entity || null;
+  const razorpayOrderId = payment?.order_id || order?.id || null;
+  const razorpayPaymentId = payment?.id || null;
+  return { razorpayOrderId, razorpayPaymentId };
+};
+
+const handleWebhook = asyncHandler(async (req, res) => {
+  if (!razorpay.isWebhookConfigured()) {
+    throw new AppError(503, 'Payment webhook is not configured on this server.');
+  }
+
+  const signature = req.headers['x-razorpay-signature'];
+  if (!signature) throw new AppError(400, 'Missing webhook signature');
+  if (!razorpay.verifyWebhookSignature(req.rawBody, signature)) {
+    throw new AppError(400, 'Invalid webhook signature');
+  }
+
+  const event = req.body?.event;
+  const { razorpayOrderId, razorpayPaymentId } = extractWebhookRefs(req.body?.payload);
+
+  // Signed but we have no order to attach it to — acknowledge so Razorpay
+  // stops retrying. This can happen for orders that were never created here.
+  if (!razorpayOrderId) {
+    return success(res, { message: 'Webhook received', data: { ignored: true } });
+  }
+
+  const order = await Order.findOne({ razorpayOrderId });
+
+  if (order && event === 'payment.failed') {
+    // Never downgrade a paid order: a late failure event cannot undo a capture.
+    if (order.paymentStatus !== 'paid') {
+      order.paymentStatus = 'failed';
+      await order.save();
+    }
+  } else if (order && (event === 'payment.captured' || event === 'order.paid')) {
+    if (order.paymentStatus !== 'paid') {
+      order.paymentStatus = 'paid';
+      order.paymentMethod = 'razorpay';
+      if (razorpayPaymentId) order.razorpayPaymentId = razorpayPaymentId;
+      await order.save();
+    }
+  }
+
+  success(res, { message: 'Webhook received', data: { event: event || null } });
+});
+
+module.exports = {
+  createPaymentOrder,
+  verifyPayment,
+  reportPaymentFailure,
+  handleWebhook,
+};

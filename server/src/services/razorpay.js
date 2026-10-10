@@ -84,9 +84,30 @@ const verifyPaymentSignature = ({ razorpayOrderId, razorpayPaymentId, razorpaySi
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 };
 
+// Webhooks are signed differently from checkout callbacks: the signature is
+// HMAC_SHA256 of the raw request body bytes using the webhook secret (a
+// separate secret from the API key secret). The body MUST be the exact bytes
+// Razorpay sent, which is why app.js keeps a copy in req.rawBody.
+const isWebhookConfigured = () => Boolean(config.razorpayWebhookSecret);
+
+const verifyWebhookSignature = (rawBody, signature) => {
+  if (!isWebhookConfigured() || !rawBody || !signature) return false;
+
+  const expected = crypto
+    .createHmac('sha256', config.razorpayWebhookSecret)
+    .update(rawBody)
+    .digest('hex');
+
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(String(signature), 'utf8');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+};
+
 module.exports = {
   isConfigured,
+  isWebhookConfigured,
   createOrder,
   createRefund,
   verifyPaymentSignature,
+  verifyWebhookSignature,
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { IconUser, IconLock, IconEye, IconEyeOff, IconShield, IconAlert, IconCheck, IconArrowRight, IconArrowLeft } from '../components/ui/Icons'
 import '../components/Auth.css'
@@ -132,6 +132,10 @@ export default function AdminLogin() {
                 </button>
               </div>
               {errors.password && <p className="field-error"><IconAlert size={14} /> {errors.password}</p>}
+            </div>
+
+            <div className="form-row" style={{ justifyContent: 'flex-end', marginTop: '-0.5rem' }}>
+              <Link to="/forgot-password" className="forgot-link">Forgot password?</Link>
             </div>
 
             <button type="submit" className="auth-btn" disabled={submitting}>

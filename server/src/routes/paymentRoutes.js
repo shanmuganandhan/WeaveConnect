@@ -12,11 +12,17 @@ const {
   createPaymentOrder,
   verifyPayment,
   reportPaymentFailure,
+  handleWebhook,
 } = require('../controllers/paymentController');
 
 const router = express.Router();
 
-// Buyers only, every endpoint. The Razorpay secret stays on the server —
+// Razorpay's server-to-server callback. Registered BEFORE the buyer-only
+// middleware below: it carries no session and no CSRF-able credentials, and
+// authenticates itself with the HMAC signature instead.
+router.post('/webhook', handleWebhook);
+
+// Buyers only, every other endpoint. The Razorpay secret stays on the server —
 // only the public key id is ever returned to the browser.
 router.use(authenticate, authorize('buyer'), paymentLimiter);
 

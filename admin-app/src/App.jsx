@@ -4,6 +4,7 @@ import { AdminProvider } from './context/AdminContext'
 import AdminLayout from './layouts/AdminLayout'
 
 import AdminLogin from './pages/AdminLogin'
+import ForgotPassword from './components/ForgotPassword'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminManufacturers from './pages/admin/AdminManufacturers'
@@ -29,6 +30,8 @@ export default function App() {
       <Route path="/" element={<Navigate to={user?.role === 'admin' ? '/admin/dashboard' : '/login'} replace />} />
 
       <Route path="/login" element={user?.role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <AdminLogin />} />
+
+      <Route path="/forgot-password" element={user?.role === 'admin' ? <Navigate to="/admin/dashboard" replace /> : <ForgotPassword />} />
 
       <Route path="/admin" element={
         <RoleProtectedRoute allowedRoles={['admin']}>

@@ -26,3 +26,17 @@ export async function logout({ refreshToken } = {}) {
 export async function logoutAll() {
   return await api.post('/auth/logout-all')
 }
+
+// Password recovery, in the three steps the backend expects. The reset token
+// returned by verifyOtp is short-lived and single-use.
+export async function forgotPassword({ email }) {
+  return await api.post('/auth/forgot-password', { email })
+}
+
+export async function verifyOtp({ email, otp }) {
+  return await api.post('/auth/verify-otp', { email, otp })
+}
+
+export async function resetPassword({ resetToken, newPassword, confirmPassword }) {
+  return await api.post('/auth/reset-password', { resetToken, newPassword, confirmPassword })
+}

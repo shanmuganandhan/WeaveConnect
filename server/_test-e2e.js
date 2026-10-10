@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const BASE = process.env.TEST_BASE || 'http://localhost:5000';
 const TEST_DB = process.env.TEST_DB || 'mongodb://localhost:27017/weaveconnect_test';
@@ -30,8 +31,27 @@ const api = async (method, path, { token, body } = {}) => {
   return { status: res.status, json };
 };
 
-const register = async (name, email, role, extra = {}) => {
-  const r = await api('POST', '/api/auth/register', {
+// Razorpay webhooks are verified against the HMAC of the exact request body,
+// so they are sent with raw fetch instead of the JSON helper above (which
+// would re-serialise the object and break the signature).
+const TEST_WEBHOOK_SECRET = 'test_webhook_secret';
+
+const postWebhook = async (payload, { signature, secret = TEST_WEBHOOK_SECRET } = {}) => {
+  const raw = JSON.stringify(payload);
+  const headers = { 'Content-Type': 'application/json' };
+  if (signature !== null) {
+    headers['x-razorpay-signature'] =
+      signature !== undefined
+        ? signature
+        : crypto.createHmac('sha256', secret).update(raw).digest('hex');
+  }
+  const res = await fetch(`${BASE}/api/payment/webhook`, { method: 'POST', headers, body: raw });
+  let json = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, json };
+};
+
+const register = async (name, email, role, extra = {}) => {  const r = await api('POST', '/api/auth/register', {
     body: { name, email, password: 'secret123', role, ...extra },
   });
   return { token: r.json?.data?.token || null, user: r.json?.data?.user || null, json: r.json };
@@ -560,6 +580,106 @@ async function runTests({ smtp } = {}) {
 
   r = await api('POST', '/api/payment/failure');
   check('report payment failure without token -> 401', r.status === 401);
+
+  // ---------- PAYMENT WEBHOOK (Razorpay -> server) ----------
+  // The runner sets RAZORPAY_WEBHOOK_SECRET='test_webhook_secret'. The endpoint
+  // takes no buyer session and proves authenticity with the body signature.
+  await mongoose.connect(TEST_DB);
+  const { Order } = require('./src/models');
+  const mkPendingOrder = (razorpayOrderId) =>
+    Order.create({
+      buyer: buyerReg.user.id,
+      items: [{ product: a, manufacturer: man1Reg.user.id, quantity: 1, price: 520 }],
+      shippingAddress: {
+        name: 'E2E Buyer',
+        phone: '9876543210',
+        addressLine1: '1 Test Street',
+        city: 'Chennai',
+        state: 'Tamil Nadu',
+        zip: '600001',
+      },
+      totalAmount: 520,
+      paymentMethod: 'razorpay',
+      paymentStatus: 'pending',
+      razorpayOrderId,
+    });
+  await mkPendingOrder('order_WH_CAPTURE');
+  await mkPendingOrder('order_WH_ORDERPAID');
+  await mkPendingOrder('order_WH_FAIL');
+
+  const readOrder = async (razorpayOrderId) => {
+    const doc = await Order.findOne({ razorpayOrderId }).lean();
+    return doc;
+  };
+
+  // No session and no signature: rejected, and nothing is trusted.
+  const noSig = await postWebhook(
+    { event: 'payment.captured', payload: { payment: { entity: { id: 'pay_x', order_id: 'order_WH_CAPTURE' } } } },
+    { signature: null }
+  );
+  check('webhook without signature -> 400', noSig.status === 400);
+  check('webhook is reachable without a buyer session (not 401)', noSig.status !== 401);
+
+  const badSig = await postWebhook(
+    { event: 'payment.captured', payload: { payment: { entity: { id: 'pay_x', order_id: 'order_WH_CAPTURE' } } } },
+    { signature: 'deadbeef' }
+  );
+  check('webhook with a forged signature -> 400', badSig.status === 400);
+  check('forged signature leaves the order unpaid', (await readOrder('order_WH_CAPTURE')).paymentStatus === 'pending');
+
+  // payment.captured marks the matching order paid.
+  const captured = await postWebhook({
+    event: 'payment.captured',
+    payload: { payment: { entity: { id: 'pay_WH_1', order_id: 'order_WH_CAPTURE' } } },
+  });
+  check('signed payment.captured -> 200', captured.status === 200);
+  let whOrder = await readOrder('order_WH_CAPTURE');
+  check('payment.captured marks the order paid', whOrder.paymentStatus === 'paid');
+  check('payment.captured stores the payment id', whOrder.razorpayPaymentId === 'pay_WH_1');
+
+  // Replaying the same event must not error or double-process.
+  const replay = await postWebhook({
+    event: 'payment.captured',
+    payload: { payment: { entity: { id: 'pay_WH_1', order_id: 'order_WH_CAPTURE' } } },
+  });
+  check('replayed payment.captured -> 200 (idempotent)', replay.status === 200);
+  check('replay keeps the order paid', (await readOrder('order_WH_CAPTURE')).paymentStatus === 'paid');
+
+  // order.paid uses the order entity for the id.
+  const orderPaid = await postWebhook({
+    event: 'order.paid',
+    payload: {
+      payment: { entity: { id: 'pay_WH_2', order_id: 'order_WH_ORDERPAID' } },
+      order: { entity: { id: 'order_WH_ORDERPAID' } },
+    },
+  });
+  check('signed order.paid -> 200', orderPaid.status === 200);
+  check('order.paid marks the order paid', (await readOrder('order_WH_ORDERPAID')).paymentStatus === 'paid');
+
+  // payment.failed marks an unpaid order failed...
+  const failed = await postWebhook({
+    event: 'payment.failed',
+    payload: { payment: { entity: { id: 'pay_WH_3', order_id: 'order_WH_FAIL' } } },
+  });
+  check('signed payment.failed -> 200', failed.status === 200);
+  check('payment.failed marks the order failed', (await readOrder('order_WH_FAIL')).paymentStatus === 'failed');
+
+  // ...but can never downgrade an already-paid order.
+  const failedAfterPaid = await postWebhook({
+    event: 'payment.failed',
+    payload: { payment: { entity: { id: 'pay_late', order_id: 'order_WH_CAPTURE' } } },
+  });
+  check('late payment.failed after paid -> 200', failedAfterPaid.status === 200);
+  check('a paid order is never downgraded to failed', (await readOrder('order_WH_CAPTURE')).paymentStatus === 'paid');
+
+  // An unknown order id is acknowledged so Razorpay stops retrying.
+  const unknown = await postWebhook({
+    event: 'payment.captured',
+    payload: { payment: { entity: { id: 'pay_z', order_id: 'order_WH_NOT_FOUND' } } },
+  });
+  check('webhook for an unknown order -> 200 (ack)', unknown.status === 200);
+
+  await mongoose.disconnect();
 
   // ---------- cleanup ----------
   await mongoose.connect(TEST_DB);

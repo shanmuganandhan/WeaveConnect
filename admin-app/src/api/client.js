@@ -3,7 +3,15 @@ import { authStorage } from './authStorage'
 
 // These are the public auth endpoints. A 401 from any of them is a normal
 // "wrong details" answer, so we must not clear the session or redirect.
-const AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/logout', '/auth/logout-all']
+const AUTH_PATHS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/logout',
+  '/auth/logout-all',
+  '/auth/forgot-password',
+  '/auth/verify-otp',
+  '/auth/reset-password',
+]
 
 export function normalizeError(err) {
   const status = err?.response?.status

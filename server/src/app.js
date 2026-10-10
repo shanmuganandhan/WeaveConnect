@@ -40,7 +40,18 @@ app.use(
       : {}
   )
 );
-app.use(express.json({ limit: '100kb' }));
+// Keep a copy of the raw request body. Razorpay signs the exact bytes it
+// sent, so webhook verification must run against this buffer rather than the
+// re-serialised JSON (key order/whitespace can differ). The copy is small
+// (limit 100kb) and only ever read by the payment webhook handler.
+app.use(
+  express.json({
+    limit: '100kb',
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(mongoSanitize);
 

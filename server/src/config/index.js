@@ -34,6 +34,9 @@ module.exports = {
   // Razorpay (test mode). The secret never leaves the server.
   razorpayKeyId: process.env.RAZORPAY_KEY_ID,
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
+  // Set in the Razorpay dashboard when you add the webhook URL. Used only to
+  // verify the `X-Razorpay-Signature` header on incoming webhook calls.
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET,
   // Optional comma-separated allowlist, e.g. https://weaveconnect.vercel.app
   corsOrigin: process.env.CORS_ORIGIN,
   // Optional rate-limit tuning (requests per window per key).
